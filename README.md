@@ -1,7 +1,11 @@
 # A Constant Time Hardware Implementation of Streamlined NTRU Prime
+
+**WARNING This is experimental code, do NOT use in production systems**
+
 This is a constant time hardware implementation of round 3 Streamlined NTRU Prime. This is the code from the paper https://eprint.iacr.org/2020/1067.
 
 The parameter sets sntrup653, sntrup761 and sntrup857 are currently supported, and can be selected with the constant "use_parameter_set" in the file constants.pkg.vhd.
+
 
 Since the paper was published, the code was improved, leading to a reduction of FPGA resources.
 
