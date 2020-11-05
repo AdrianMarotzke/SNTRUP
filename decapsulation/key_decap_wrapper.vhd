@@ -446,7 +446,7 @@ begin
 						sha_out_address <= sha_out_address + 1;
 					end if;
 				when REENCAP_ENCODE_DONE =>
-					differentbits     <= std_logic_vector(("0000000000000001" AND shift_right(signed(differentbits) - 1, 8)) - 1);
+					differentbits     <= std_logic_vector(("0000000000000001" AND shift_right(signed(differentbits(15 downto 8) & (differentbits(7 downto 0) OR (temp_s XOR bram_c_diff_data_out_a))) - 1, 8)) - 1);
 					state_dec_wrap    <= MASK_R_ENC;
 					counter           <= 0;
 					sha_start_confirm <= '1';
