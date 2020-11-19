@@ -19,9 +19,12 @@ The following table contains the performance numbers for the parameter set sntru
 
 The following table contains the resources utilization:
 
-| Parameter set  | Slices       | LUT          | FF           | BRAM         | DSP          |
-| :------------- | :----------: | :----------: | :----------: | :----------: | :----------: |
-|  sntrup761     | 1596         | 8933         | 5221         | 13           |19            |
+| Parameter set               | Slices       | LUT          | FF           | BRAM         | DSP          |
+| :---------------------------| :----------: | :----------: | :----------: | :----------: | :----------: |
+|  sntrup761 - All Operations | 1596         | 8933         | 5221         | 13           |19            |
+|  sntrup761 - Only Key Gen   | 1250         | 7192         | 4521         | 8.5          |13            |
+|  sntrup761 - Only Encap     | 1000         | 5584         | 3846         | 8.5          |8             |
+|  sntrup761 - Only Decap     | 1077         | 6094         | 4243         | 8.5          |8             |
 
 The top module is ntru_prime_top, the corrosponding testbench is tb_ntru_prime_top.
 
