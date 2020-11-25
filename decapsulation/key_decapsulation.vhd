@@ -160,17 +160,21 @@ begin
 	mod3_freeze_enable <= rq_mult3_output_valid when state_decap /= mult_R3 and state_decap /= calc_weight else from_r3_mult.output_valid;
 
 	bram_e_address_a_fsm <= std_logic_vector(to_unsigned(counter, p_num_bits));
-	bram_e_write_a       <= mod3_freeze_output_valid when state_decap /= mult_R3 and state_decap /= calc_weight else '0';
-	bram_e_data_in_a     <= std_logic_vector(mod3_freeze_output);
+	bram_e_write_a       <= mod3_freeze_output_valid when state_decap /= mult_R3 and state_decap /= calc_weight else r3_mult_output_valid;
+	bram_e_data_in_a     <= std_logic_vector(mod3_freeze_output) when state_decap /= mult_R3 and state_decap /= calc_weight else r3_mult_output;
 
 	bram_e_address_a <= bram_e_address_a_fsm when state_decap = mult_freeze or --
 	                    state_decap = mult_freeze_done or --
-	                    state_decap = output_masked_weight else bram_e_address_a_r3;
-	bram_e_address_b <= bram_e_address_b_r3 when r3_mult_output_valid = '0' else bram_e_address_a_fsm;
+	                    state_decap = output_masked_weight or r3_mult_output_valid = '1' else bram_e_address_a_r3;
+	                    
+	bram_e_address_b <= bram_e_address_b_r3;
 
-	bram_e_write_b   <= r3_mult_output_valid;
-	bram_e_data_in_b <= r3_mult_output;
+	bram_e_write_b   <= '0';
+	bram_e_data_in_b <= (others => '0');
 
+--	bram_e_write_b   <= r3_mult_output_valid;
+--	bram_e_data_in_b <= r3_mult_output;
+	
 	calc_weight_input_valid <= r3_mult_output_valid;
 	calc_weight_input       <= r3_mult_output;
 
