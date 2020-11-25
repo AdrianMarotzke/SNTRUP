@@ -23,11 +23,12 @@ architecture RTL of modq_freeze is
 	signal temp_1        : signed(q_num_bits * 3 + 1 downto 0);
 	signal out_1         : signed(q_num_bits * 4 + 2 downto 0);
 	signal out_2         : signed(q_num_bits * 4 + 2 downto 0);
-	signal out_3         : signed(q_num_bits * 4 + 2 downto 0);
+	--signal out_3         : signed(q_num_bits * 4 + 2 downto 0);
 	signal input_delayed : signed(q_num_bits * 2 - 1 downto 0);
 
 	signal fma_temp : signed(q_num_bits * 4 + 2 downto 0);
 begin
+
 	temp_1        <= shift_right((to_signed(r, q_num_bits + 2) * input), k * 2) when rising_edge(clock);
 	input_delayed <= input when rising_edge(clock);
 
@@ -35,9 +36,8 @@ begin
 
 	out_1 <= fma_temp when rising_edge(clock);
 	out_2 <= fma_temp - q when rising_edge(clock);
-	out_3 <= fma_temp - 2 * q when rising_edge(clock);
+	--out_3 <= fma_temp - 2 * q when rising_edge(clock);
 
-	output <= out_1(q_num_bits - 1 downto 0) when out_1 < q_half
-		else out_2(q_num_bits - 1 downto 0) when out_1 >= q_half and out_1 < q + q_half
-		else out_3(q_num_bits - 1 downto 0);
+	output <= out_1(q_num_bits - 1 downto 0) when out_1 < q_half else out_2(q_num_bits - 1 downto 0); -- when out_1 >= q_half and out_1 < q + q_half
+	--else out_3(q_num_bits - 1 downto 0);
 end architecture RTL;
