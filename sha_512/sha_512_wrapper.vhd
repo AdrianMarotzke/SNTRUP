@@ -58,7 +58,7 @@ architecture RTL of sha_512_wrapper is
 	signal sha_512_n_blocks   : natural;
 	--signal sha_512_msg_block_in : std_logic_vector(0 to 1023);
 	signal sha_512_ready      : std_logic;
-	signal sha_512_data_out   : std_logic_vector(511 downto 0);
+	signal sha_512_data_out   : std_logic_vector(63 downto 0);
 
 	signal byte_counter  : integer range 0 to 128;
 	signal round_counter : integer range 0 to 10;
@@ -67,7 +67,7 @@ architecture RTL of sha_512_wrapper is
 
 	--signal r_enc_hash : std_logic_vector(255 downto 0);
 
-	signal confirm_bytes : std_logic_vector(255 downto 0);
+	--signal confirm_bytes : std_logic_vector(255 downto 0);
 
 	signal sha_512_finished_wrap : std_logic;
 
@@ -83,14 +83,14 @@ architecture RTL of sha_512_wrapper is
 
 	constant unpadded_bytes_c : integer := Ciphertexts_bytes + 32 * 2 - 128 * (number_of_rounds_c - 1) + 1;
 
-	signal m1 : std_logic_vector(0 to 127);
-	signal m2 : std_logic_vector(0 to 127);
-	signal m3 : std_logic_vector(0 to 127);
-	signal m4 : std_logic_vector(0 to 127);
-	signal m5 : std_logic_vector(0 to 127);
-	signal m6 : std_logic_vector(0 to 127);
-	signal m7 : std_logic_vector(0 to 127);
-	signal m8 : std_logic_vector(0 to 127);
+--	signal m1 : std_logic_vector(0 to 127);
+--	signal m2 : std_logic_vector(0 to 127);
+--	signal m3 : std_logic_vector(0 to 127);
+--	signal m4 : std_logic_vector(0 to 127);
+--	signal m5 : std_logic_vector(0 to 127);
+--	signal m6 : std_logic_vector(0 to 127);
+--	signal m7 : std_logic_vector(0 to 127);
+--	signal m8 : std_logic_vector(0 to 127);
 
 	signal fifo_wr_en      : std_logic;
 	signal fifo_wr_data    : std_logic_vector(0 to 64 - 1);
@@ -284,7 +284,7 @@ begin
 						--public_key_cache      <= sha_512_data_out(511 downto 256);
 						cache_address_counter <= cache_address_counter + 1;
 						cache_address_b       <= std_logic_vector(to_unsigned(public_key_cache_offset + cache_address_counter, 4));
-						cache_data_in_b       <= sha_512_data_out(511 - 64 * cache_address_counter downto 512 - 64 * (cache_address_counter + 1));
+						cache_data_in_b       <= sha_512_data_out;
 						cache_write_b         <= '1';
 						if cache_address_counter = 3 then
 							state_sha_wrap   <= idle;
@@ -369,7 +369,7 @@ begin
 
 						cache_address_counter <= cache_address_counter + 1;
 						cache_address_b       <= std_logic_vector(to_unsigned(r_enc_cache_offset + cache_address_counter, 4));
-						cache_data_in_b       <= sha_512_data_out(511 - 64 * cache_address_counter downto 512 - 64 * (cache_address_counter + 1));
+						cache_data_in_b       <= sha_512_data_out;
 						cache_write_b         <= '1';
 
 						if cache_address_counter = 3 then
@@ -469,10 +469,10 @@ begin
 						--state_sha_wrap         <= idle;
 						cache_address_counter <= cache_address_counter + 1;
 						cache_address_b       <= std_logic_vector(to_unsigned(confirm_bytes_cache_offset + cache_address_counter, 4));
-						cache_data_in_b       <= sha_512_data_out(511 - 64 * cache_address_counter downto 512 - 64 * (cache_address_counter + 1));
+						cache_data_in_b       <= sha_512_data_out;
 						cache_write_b         <= '1';
 						if cache_address_counter = 3 then
-							confirm_bytes    <= sha_512_data_out(511 downto 256);
+							--confirm_bytes    <= sha_512_data_out(511 downto 256);
 							--hash_confirm_out_valid <= '1';
 							state_sha_wrap   <= idle;
 							sha_512_finished <= '1';
@@ -624,7 +624,7 @@ begin
 					if sha_512_finished_wrap = '1' or cache_address_counter /= 0 then
 						cache_address_counter <= cache_address_counter + 1;
 						cache_address_b       <= std_logic_vector(to_unsigned(sha_out_cache_offset + cache_address_counter, 4));
-						cache_data_in_b       <= sha_512_data_out(511 - 64 * cache_address_counter downto 512 - 64 * (cache_address_counter + 1));
+						cache_data_in_b       <= sha_512_data_out;
 						cache_write_b         <= '1';
 						if cache_address_counter = 3 then
 							state_sha_wrap   <= idle;

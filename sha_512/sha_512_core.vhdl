@@ -1,6 +1,7 @@
 --MIT License
 --
---Copyright (c) 2017  Danny Savory
+--Original work Copyright (c) 2017 Danny Savory
+--Modified work Copyright (c) 2020 Adrian Marotzke
 --
 --Permission is hereby granted, free of charge, to any person obtaining a copy
 --of this software and associated documentation files (the "Software"), to deal
@@ -42,13 +43,13 @@ entity sha_512_core is
 		clock              : in  std_logic;
 		reset              : in  std_logic;
 		data_ready         : in  std_logic; --the edge of this signal triggers the capturing of input data and hashing it.
-		n_blocks           : in  natural; --N, the number of (padded) message blocks
+		n_blocks           : in  natural range 0 to 16; --N, the number of (padded) message blocks
 		msg_block_in       : in  std_logic_vector(0 to (16 * WORD_SIZE) - 1);
 		read_msg_fifo_en   : out std_logic;
 		read_msg_fifo_data : in  std_logic_vector(WORD_SIZE - 1 downto 0);
 		ready              : out std_logic;
 		finished           : out std_logic;
-		data_out           : out std_logic_vector((WORD_SIZE * 8) - 1 downto 0) --SHA-512 results in a 512-bit hash value
+		data_out           : out std_logic_vector(WORD_SIZE - 1 downto 0) --SHA-512 results in a 512-bit hash value
 	);
 end entity;
 
@@ -62,8 +63,8 @@ architecture sha_512_core_ARCH of sha_512_core is
 	signal T1 : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
 	signal T2 : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
 
-	signal T1a : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
-	signal T2a : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
+	--signal T1a : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
+	--signal T2a : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
 
 	--Working variables, 8 64-bit words
 	signal a : std_logic_vector(WORD_SIZE - 1 downto 0); -- := (others => '0');
@@ -103,7 +104,7 @@ architecture sha_512_core_ARCH of sha_512_core is
 	--	);
 
 	--Hash values w/ initial hash values; 8 64-bit words
-	signal HV                  : H_DATA;
+	--signal HV                  : H_DATA;
 	constant HV_INITIAL_VALUES : H_DATA := (X"6a09e667f3bcc908", X"bb67ae8584caa73b",
 	                                        X"3c6ef372fe94f82b", X"a54ff53a5f1d36f1",
 	                                        X"510e527fade682d1", X"9b05688c2b3e6c1f",
@@ -118,12 +119,28 @@ architecture sha_512_core_ARCH of sha_512_core is
 	type window_type is array (0 to 16) of std_logic_vector(WORD_SIZE - 1 downto 0);
 	signal w_window : window_type;
 
-	type SHA_512_HASH_CORE_STATE is (RESET_STATE, IDLE, READ_MSG_BLOCK, HASH_01, HASH_02, HASH_02a, HASH_02b, HASH_02c, HASH_03, DONE);
+	type SHA_512_HASH_CORE_STATE is (RESET_STATE, IDLE, READ_MSG_BLOCK, HASH_01_HV0, HASH_01_HV1, HASH_01_HV2, HASH_01_HV3, HASH_01_HV4,
+	                                 HASH_01_HV5, HASH_01_HV6, HASH_01_HV7, HASH_01_END, HASH_02, HASH_02a, HASH_02b, HASH_03a, HASH_03_HV0, HASH_03_HV1,
+	                                 HASH_03_HV2, HASH_03_HV3, HASH_03_HV4, HASH_03_HV5, HASH_03_HV6, HASH_03_HV7, DONE_a --, DONE_b, DONE_c, DONE_d
+	                                );
 	signal CURRENT_STATE, NEXT_STATE : SHA_512_HASH_CORE_STATE;
 	--signal PREVIOUS_STATE            : SHA_512_HASH_CORE_STATE := READ_MSG_BLOCK;
 
 	signal k_ROM_data_out : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
 
+	signal HV_ram_address_a  : STD_LOGIC_VECTOR(3 - 1 downto 0);
+	signal HV_ram_data_out_a : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
+	signal HV_ram_address_b  : STD_LOGIC_VECTOR(3 - 1 downto 0);
+	signal HV_ram_write_b    : STD_LOGIC;
+	signal HV_ram_data_in_b  : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
+
+	signal n_blocks_reg : natural range 0 to 16;
+
+	signal HV_addition_input  : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
+	signal HV_addition_output : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
+
+	signal HV_initial_input : STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0);
+	
 begin
 
 	--current state logic
@@ -137,7 +154,7 @@ begin
 	end process;
 
 	--next state logic
-	process(CURRENT_STATE, HASH_ROUND_COUNTER, HASH_02_COUNTER, reset, data_ready, n_blocks)
+	process(CURRENT_STATE, HASH_ROUND_COUNTER, HASH_02_COUNTER, reset, data_ready, n_blocks_reg)
 	begin
 		case CURRENT_STATE is
 			when RESET_STATE =>
@@ -153,29 +170,60 @@ begin
 					NEXT_STATE <= IDLE;
 				end if;
 			when READ_MSG_BLOCK =>
-				NEXT_STATE <= HASH_01;
-			when HASH_01 =>
+				NEXT_STATE <= HASH_01_HV0;
+			when HASH_01_HV0 =>
+				NEXT_STATE <= HASH_01_HV1;
+			when HASH_01_HV1 =>
+				NEXT_STATE <= HASH_01_HV2;
+			when HASH_01_HV2 =>
+				NEXT_STATE <= HASH_01_HV3;
+			when HASH_01_HV3 =>
+				NEXT_STATE <= HASH_01_HV4;
+			when HASH_01_HV4 =>
+				NEXT_STATE <= HASH_01_HV5;
+			when HASH_01_HV5 =>
+				NEXT_STATE <= HASH_01_HV6;
+			when HASH_01_HV6 =>
+				NEXT_STATE <= HASH_01_HV7;
+			when HASH_01_HV7 =>
+				NEXT_STATE <= HASH_01_END;
+			when HASH_01_END =>
 				NEXT_STATE <= HASH_02;
 			when HASH_02 =>
 				if (HASH_02_COUNTER = HASH_02_COUNT_LIMIT) then
-					NEXT_STATE <= HASH_03;
+					NEXT_STATE <= HASH_03a;
 				else
 					NEXT_STATE <= HASH_02a;
 				end if;
 			when HASH_02a =>
 				NEXT_STATE <= HASH_02b;
 			when HASH_02b =>
-				NEXT_STATE <= HASH_02c;
-			when HASH_02c =>
 				NEXT_STATE <= HASH_02;
-			when HASH_03 =>
-				if (HASH_ROUND_COUNTER = n_blocks - 1) then
-					NEXT_STATE <= DONE;
+			when HASH_03a =>
+				NEXT_STATE <= HASH_03_HV0;
+			when HASH_03_HV0 =>
+				NEXT_STATE <= HASH_03_HV1;
+			when HASH_03_HV1 =>
+				NEXT_STATE <= HASH_03_HV2;
+			when HASH_03_HV2 =>
+				NEXT_STATE <= HASH_03_HV3;
+			when HASH_03_HV3 =>
+				NEXT_STATE <= HASH_03_HV4;
+			when HASH_03_HV4 =>
+				NEXT_STATE <= HASH_03_HV5;
+			when HASH_03_HV5 =>
+				NEXT_STATE <= HASH_03_HV6;
+			when HASH_03_HV6 =>
+				NEXT_STATE <= HASH_03_HV7;
+			when HASH_03_HV7 =>
+				if (HASH_ROUND_COUNTER = n_blocks_reg - 1) then
+					NEXT_STATE <= DONE_a;
 				else
 					NEXT_STATE <= IDLE;
 				end if;
-			when DONE =>
+			when DONE_a =>
 				NEXT_STATE <= IDLE;
+
 		end case;
 	end process;
 
@@ -199,13 +247,12 @@ begin
 			h                  <= h;
 			T1                 <= T1;
 			T2                 <= T2;
-			T1a                <= T1a;
-			T2a                <= T2a;
 			--W                  <= W;
 			--M                  <= M;
-			HV                 <= HV;
+			--HV                 <= HV;
 			HASH_02_COUNTER    <= HASH_02_COUNTER;
 			HASH_ROUND_COUNTER <= HASH_ROUND_COUNTER;
+			HV_ram_write_b     <= '0';
 			case CURRENT_STATE is
 				when RESET_STATE =>
 
@@ -214,19 +261,89 @@ begin
 					read_msg_fifo_en <= '0';
 					HASH_02_COUNTER  <= 0;
 				when READ_MSG_BLOCK =>
+					ready            <= '0';
+					n_blocks_reg     <= n_blocks;
+					HV_ram_address_a <= "000";
+				when HASH_01_HV0 =>
+					HV_ram_address_a <= "001";
+				when HASH_01_HV1 =>
+					HV_ram_address_a <= "010";
 					if (HASH_ROUND_COUNTER = 0) then
-						HV <= HV_INITIAL_VALUES;
+						a                <= HV_INITIAL_VALUES(0);
+						HV_ram_address_b <= "000";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(0);
+					else
+						a <= HV_ram_data_out_a;
 					end if;
-					ready <= '0';
-				when HASH_01 =>
-					a <= HV(0);
-					b <= HV(1);
-					c <= HV(2);
-					d <= HV(3);
-					e <= HV(4);
-					f <= HV(5);
-					g <= HV(6);
-					h <= HV(7);
+				when HASH_01_HV2 =>
+					HV_ram_address_a <= "011";
+					if (HASH_ROUND_COUNTER = 0) then
+						b                <= HV_INITIAL_VALUES(1);
+						HV_ram_address_b <= "001";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(1);
+					else
+						b <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_HV3 =>
+					HV_ram_address_a <= "100";
+					if (HASH_ROUND_COUNTER = 0) then
+						c                <= HV_INITIAL_VALUES(2);
+						HV_ram_address_b <= "010";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(2);
+					else
+						c <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_HV4 =>
+					HV_ram_address_a <= "101";
+					if (HASH_ROUND_COUNTER = 0) then
+						d                <= HV_INITIAL_VALUES(3);
+						HV_ram_address_b <= "011";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(3);
+					else
+						d <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_HV5 =>
+					HV_ram_address_a <= "110";
+					if (HASH_ROUND_COUNTER = 0) then
+						e                <= HV_INITIAL_VALUES(4);
+						HV_ram_address_b <= "100";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(4);
+					else
+						e <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_HV6 =>
+					HV_ram_address_a <= "111";
+					if (HASH_ROUND_COUNTER = 0) then
+						f                <= HV_INITIAL_VALUES(5);
+						HV_ram_address_b <= "101";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(5);
+					else
+						f <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_HV7 =>
+					if (HASH_ROUND_COUNTER = 0) then
+						g                <= HV_INITIAL_VALUES(6);
+						HV_ram_address_b <= "110";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(6);
+					else
+						g <= HV_ram_data_out_a;
+					end if;
+				when HASH_01_END =>
+					if (HASH_ROUND_COUNTER = 0) then
+						h                <= HV_INITIAL_VALUES(7);
+						HV_ram_address_b <= "111";
+						HV_ram_write_b   <= '1';
+						HV_ram_data_in_b <= HV_INITIAL_VALUES(7);
+					else
+						h <= HV_ram_data_out_a;
+					end if;
 				when HASH_02 =>
 					read_msg_fifo_en <= '0';
 					if HASH_02_COUNTER < 16 then
@@ -245,16 +362,15 @@ begin
 					if (HASH_02_COUNTER = HASH_02_COUNT_LIMIT) then
 						HASH_02_COUNTER <= 0;
 					end if;
+
+					HV_ram_address_a <= "000";
 				when HASH_02a =>
 					read_msg_fifo_en <= '0';
 					--you have to set T1 and T2 in a different state, due to how
 					--VHDL sequential/process statements are evaluated.
-					T1a              <= std_logic_vector(unsigned(h) + unsigned(SIGMA_UCASE_1(e)) + unsigned(CH(e, f, g)) + unsigned(k_ROM_data_out) + unsigned(w_new));
-					T2a              <= std_logic_vector(unsigned(SIGMA_UCASE_0(a)) + unsigned(MAJ(a, b, c)));
+					T1               <= std_logic_vector(unsigned(h) + unsigned(SIGMA_UCASE_1(e)) + unsigned(CH(e, f, g)) + unsigned(k_ROM_data_out) + unsigned(w_new));
+					T2               <= std_logic_vector(unsigned(SIGMA_UCASE_0(a)) + unsigned(MAJ(a, b, c)));
 				when HASH_02b =>
-					T1 <= T1a;
-					T2 <= T2a;
-				when HASH_02c =>
 					h               <= g;
 					g               <= f;
 					f               <= e;
@@ -264,21 +380,48 @@ begin
 					b               <= a;
 					a               <= std_logic_vector(unsigned(T1) + unsigned(T2));
 					HASH_02_COUNTER <= HASH_02_COUNTER + 1; --increment counter
-				when HASH_03 =>
-					HV(0) <= std_logic_vector(unsigned(a) + unsigned(HV(0)));
-					HV(1) <= std_logic_vector(unsigned(b) + unsigned(HV(1)));
-					HV(2) <= std_logic_vector(unsigned(c) + unsigned(HV(2)));
-					HV(3) <= std_logic_vector(unsigned(d) + unsigned(HV(3)));
-					HV(4) <= std_logic_vector(unsigned(e) + unsigned(HV(4)));
-					HV(5) <= std_logic_vector(unsigned(f) + unsigned(HV(5)));
-					HV(6) <= std_logic_vector(unsigned(g) + unsigned(HV(6)));
-					HV(7) <= std_logic_vector(unsigned(h) + unsigned(HV(7)));
-					if (HASH_ROUND_COUNTER = n_blocks - 1) then
-						HASH_ROUND_COUNTER <= 0;
-					else
-						HASH_ROUND_COUNTER <= HASH_ROUND_COUNTER + 1; --increment counter, read in next message block
-					end if;
-				when DONE =>
+				when HASH_03a =>
+					HV_ram_address_a <= "001";
+				when HASH_03_HV0 =>
+					HV_ram_address_a <= "010";
+					HV_ram_address_b <= "000";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV1 =>
+					HV_ram_address_a <= "011";
+					HV_ram_address_b <= "001";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV2 =>
+					HV_ram_address_a <= "100";
+					HV_ram_address_b <= "010";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV3 =>
+					HV_ram_address_a <= "101";
+					HV_ram_address_b <= "011";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV4 =>
+					HV_ram_address_a <= "110";
+					HV_ram_address_b <= "100";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV5 =>
+					HV_ram_address_a <= "111";
+					HV_ram_address_b <= "101";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV6 =>
+					HV_ram_address_b <= "110";
+					HV_ram_write_b   <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+				when HASH_03_HV7 =>
+					HV_ram_address_b   <= "111";
+					HV_ram_write_b     <= '1';
+					HV_ram_data_in_b <= HV_addition_output;
+					HASH_ROUND_COUNTER <= HASH_ROUND_COUNTER + 1; --increment counter, read in next message block
+				when DONE_a =>
 					HASH_ROUND_COUNTER <= 0;
 			end case;
 		end if;
@@ -291,9 +434,33 @@ begin
 			data_out => k_ROM_data_out
 		);
 
-	--FINISHED signal asserts when hashing is done
-	finished <= '1' when CURRENT_STATE = DONE else '0';
+	HV_SDP_dist_RAM_inst : entity work.SDP_dist_RAM
+		generic map(
+			ADDRESS_WIDTH => 3,
+			DATA_WIDTH    => 64
+		)
+		port map(
+			clock      => clock,
+			address_a  => HV_ram_address_a,
+			data_out_a => HV_ram_data_out_a,
+			address_b  => HV_ram_address_b,
+			write_b    => HV_ram_write_b,
+			data_in_b  => HV_ram_data_in_b
+		);
+	HV_addition_input <= a when CURRENT_STATE = HASH_03_HV0
+	                     else b when CURRENT_STATE = HASH_03_HV1
+	                     else c when CURRENT_STATE = HASH_03_HV2
+	                     else d when CURRENT_STATE = HASH_03_HV3
+	                     else e when CURRENT_STATE = HASH_03_HV4
+	                     else f when CURRENT_STATE = HASH_03_HV5
+	                     else g when CURRENT_STATE = HASH_03_HV6
+	                     else h;
 
-	data_out <= HV(0) & HV(1) & HV(2) & HV(3) & HV(4) & HV(5) & HV(6) & HV(7);
+	HV_addition_output <= std_logic_vector(unsigned(HV_addition_input) + unsigned(HV_ram_data_out_a));
+	
+	                   --FINISHED signal asserts when hashing is done
+	finished <= '1' when CURRENT_STATE = HASH_03_HV1 and HASH_ROUND_COUNTER = n_blocks_reg - 1 else '0';
+
+	data_out <= HV_ram_data_in_b;
 end architecture;
 
