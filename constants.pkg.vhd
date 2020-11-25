@@ -6,11 +6,19 @@ use ieee.math_real.all;
 -- Package for all constants
 package constants is
 
+	---------------------------------------------------------------------------------------------------------------------------------------
+	-- Configurable constant below
+	---------------------------------------------------------------------------------------------------------------------------------------
+
 	constant use_2nd_layer_karatsuba : boolean := false;
 
 	type parameter_set_enum is (sntrup653, sntrup761, sntrup857, sntrup953, sntrup1013, sntrup1277);
 
-	constant use_parameter_set : parameter_set_enum := sntrup653; -- only sntrup653 and sntrup761 and sntrup857 are supported so far
+	constant use_parameter_set : parameter_set_enum := sntrup761; -- only sntrup653 and sntrup761 and sntrup857 are supported so far
+
+	---------------------------------------------------------------------------------------------------------------------------------------
+	-- Internal constant below
+	---------------------------------------------------------------------------------------------------------------------------------------
 
 	type M_array_Type is array (0 to 41) of integer;
 
@@ -22,6 +30,8 @@ package constants is
 	function set_SecretKey_bytes return integer;
 	function set_M_array return M_array_Type;
 	function set_radix_width_array return M_array_Type;
+	function set_bottomt_array return M_array_Type;
+	function set_M_array_squared_div_rounds return M_array_Type;
 
 	constant p : integer := set_p;
 
@@ -86,6 +96,13 @@ package constants is
 	                                            M_array(30)**2, M_array(30) * M_array(30 + 11),
 	                                            0
 	                                           );
+
+	constant bottomt_array : M_array_Type := set_bottomt_array;
+
+	-- This array only stores whether M_array_squared is >=  256 * 16383, >= 16384, or smaller
+	constant M_array_squared_256_16384 : M_array_Type := set_bottomt_array;
+
+	constant M_array_squared_div_rounds : M_array_Type := set_M_array_squared_div_rounds;
 
 	type decode_divisior_type is array (0 to 41) of unsigned(max_divdend_width downto 0);
 
@@ -263,5 +280,76 @@ package body constants is
 
 		return temp;
 	end function set_radix_width_array;
+
+	function set_bottomt_array
+	return M_array_Type is
+		variable temp : M_array_Type;
+
+	begin
+		for i in 0 to 41 loop
+			if M_array_squared(i) > 256 * 16383 then
+				temp(i) := 2;
+			elsif M_array_squared(i) > 16383 then
+				temp(i) := 1;
+			else
+				temp(i) := 0;
+			end if;
+		end loop;
+
+		return temp;
+	end function set_bottomt_array;
+
+	function set_M_array_squared_div_rounds
+	return M_array_Type is
+		variable temp : M_array_Type;
+
+		variable temp2 : integer := 0;
+
+	begin
+		for i in 0 to 41 loop
+			temp(i) := 0;
+			temp2   := M_array_squared(i);
+
+			while temp2 >= 16384 loop
+				temp(i) := temp(i) + 1;
+				temp2   := (temp2 + 255) / 256;
+			end loop;
+
+		end loop;
+
+		-- At depth 9, a different number of loops has to be used.
+		-- Loop while >0, instead of > 16384
+		-- Per depth, there are 2 entries in the table
+		
+		-- Entries for public key encoding
+		temp(2 * 9)     := 0;
+		temp2           := M_array_squared(2 * 9);
+		while temp2 > 1 loop
+			temp(2 * 9) := temp(2 * 9) + 1;
+			temp2       := (temp2 + 255) / 256;
+		end loop;
+		temp(2 * 9 + 1) := 0;
+		temp2           := M_array_squared(2 * 9 + 1);
+		while temp2 > 1 loop
+			temp(2 * 9 + 1) := temp(2 * 9 + 1) + 1;
+			temp2           := (temp2 + 255) / 256;
+		end loop;
+
+		-- Entries for ciphertext encoding
+		temp(2 * 9 + 21)     := 0;
+		temp2                := M_array_squared(2 * 9 + 21);
+		while temp2 > 1 loop
+			temp(2 * 9 + 21) := temp(2 * 9 + 21) + 1;
+			temp2            := (temp2 + 255) / 256;
+		end loop;
+		temp(2 * 9 + 21 + 1) := 0;
+		temp2                := M_array_squared(2 * 9 + 21 + 1);
+		while temp2 > 1 loop
+			temp(2 * 9 + 21 + 1) := temp(2 * 9 + 21 + 1) + 1;
+			temp2                := (temp2 + 255) / 256;
+		end loop;
+
+		return temp;
+	end function set_M_array_squared_div_rounds;
 
 end package body constants;

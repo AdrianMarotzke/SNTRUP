@@ -35,13 +35,15 @@ architecture RTL of encode_Rq is
 	constant max_depth       : integer := p_num_bits;
 	constant p_num_bits_half : integer := p_num_bits - 1;
 
+	constant M_div_rounds : M_array_Type := M_array_squared_div_rounds;
+
 	signal depth_counter : integer range 0 to max_depth - 1;
 
 	signal reg_Ri  : unsigned(15 downto 0);
 	signal reg_Ri1 : unsigned(15 downto 0);
 
 	signal reg_r : unsigned(31 downto 0);
-	signal reg_m : unsigned(31 downto 0);
+	signal reg_m : unsigned(3 downto 0);
 
 	signal bram_r_address_a  : std_logic_vector(p_num_bits_half - 1 downto 0);
 	signal bram_r_write_a    : std_logic;
@@ -98,16 +100,16 @@ begin
 					end if;
 
 					if i >= reg_length - 2 then
-						reg_m <= to_unsigned(M_array_squared(depth_counter * 2 + rounded_index_offset + 1), 32);
+						reg_m <= to_unsigned(M_div_rounds(depth_counter * 2 + rounded_index_offset + 1), 4);
 					else
-						reg_m <= to_unsigned(M_array_squared(depth_counter * 2 + rounded_index_offset), 32);
+						reg_m <= to_unsigned(M_div_rounds(depth_counter * 2 + rounded_index_offset), 4);
 					end if;
 
 					var_m0 := to_unsigned(M_array(depth_counter + rounded_index_offset), 16);
 
 					reg_r <= reg_Ri + reg_Ri1 * var_m0;
 				when output_state =>
-					if reg_m <= 16384 then
+					if reg_m = 0 then
 						state_encode <= next_loop;
 						output_valid <= '0';
 
@@ -117,7 +119,7 @@ begin
 						output       <= std_logic_vector(reg_r(7 downto 0));
 						output_valid <= '1';
 						reg_r        <= shift_right(reg_r, 8);
-						reg_m        <= shift_right(reg_m + 255, 8);
+						reg_m        <= reg_m - 1;
 					end if;
 				when next_loop =>
 					if i + 2 < reg_length - 1 then
@@ -165,7 +167,7 @@ begin
 					reg_Ri       <= unsigned(bram_r_data_out_a);
 					reg_Ri1      <= unsigned(bram_r_data_out_b);
 				when final_output_state =>
-					if reg_m <= 1 then
+					if reg_m = 0 then
 						state_encode <= done_state;
 						output_valid <= '0';
 					else
@@ -173,7 +175,7 @@ begin
 						output       <= std_logic_vector(reg_r(7 downto 0));
 						output_valid <= '1';
 						reg_r        <= shift_right(reg_r, 8);
-						reg_m        <= shift_right(reg_m + 255, 8);
+						reg_m        <= reg_m - 1;
 					end if;
 				when done_state =>
 					state_encode <= idle;

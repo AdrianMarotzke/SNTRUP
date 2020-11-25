@@ -44,6 +44,7 @@ architecture RTL of decode_Rq is
 	signal reg_S1 : std_logic_vector(7 downto 0);
 
 	signal reg_m : unsigned(31 downto 0);
+	signal reg_m2 : unsigned(31 downto 0);
 
 	signal reg_r  : unsigned(31 downto 0);
 	signal reg_r0 : unsigned(15 downto 0);
@@ -97,7 +98,7 @@ architecture RTL of decode_Rq is
 	signal bram_R2_address_b  : std_logic_vector(p_num_bits - 1 downto 0);
 	signal bram_R2_write_b    : std_logic;
 	signal bram_R2_data_in_b  : std_logic_vector(15 downto 0);
-	signal bram_R2_data_out_b : std_logic_vector(15 downto 0);
+	--signal bram_R2_data_out_b : std_logic_vector(15 downto 0);
 
 	signal bram_br_address_a  : std_logic_vector(p_num_bits - 1 downto 0);
 	signal bram_br_write_a    : std_logic;
@@ -106,22 +107,15 @@ architecture RTL of decode_Rq is
 	signal bram_br_address_b  : std_logic_vector(p_num_bits - 1 downto 0);
 	signal bram_br_write_b    : std_logic;
 	signal bram_br_data_in_b  : std_logic_vector(15 downto 0);
-	signal bram_br_data_out_b : std_logic_vector(15 downto 0);
-
-	signal bram_bt_address_a  : std_logic_vector(p_num_bits - 1 downto 0);
-	signal bram_bt_write_a    : std_logic;
-	signal bram_bt_data_in_a  : std_logic_vector(31 downto 0);
-	signal bram_bt_data_out_a : std_logic_vector(31 downto 0);
-	signal bram_bt_address_b  : std_logic_vector(p_num_bits - 1 downto 0);
-	signal bram_bt_write_b    : std_logic;
-	signal bram_bt_data_in_b  : std_logic_vector(31 downto 0);
-	signal bram_bt_data_out_b : std_logic_vector(31 downto 0);
+	--signal bram_br_data_out_b : std_logic_vector(15 downto 0);
 
 	signal rounded_index_offset : integer range 0 to 21;
 
 begin
 
 	fsm_process : process(clock, reset) is
+		variable i_2_before_end : integer := 0;
+
 	begin
 		if reset = '1' then
 			state_decode <= idle;
@@ -133,9 +127,6 @@ begin
 
 			bram_br_write_a <= '0';
 			bram_br_write_b <= '0';
-
-			bram_bt_write_a <= '0';
-			bram_bt_write_b <= '0';
 
 			push_stack <= '0';
 			pop_stack  <= '0';
@@ -161,9 +152,6 @@ begin
 					bram_br_write_a <= '0';
 					bram_br_write_b <= '0';
 
-					bram_bt_write_a <= '0';
-					bram_bt_write_b <= '0';
-
 					push_stack <= '0';
 					pop_stack  <= '0';
 
@@ -181,7 +169,6 @@ begin
 						state_decode <= next_recursion;
 					end if;
 					bram_br_write_a <= '0';
-					bram_bt_write_a <= '0';
 				when loop_input_one =>
 					if rounded_decode = '1' then
 						state_decode <= loop_input_two_r;
@@ -199,20 +186,12 @@ begin
 					bram_br_address_a <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
 					bram_br_write_a   <= '1';
 
-					bram_bt_data_in_a <= std_logic_vector(to_unsigned(256 * 256, 32));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
-					bram_bt_write_a   <= '1';
-
 					i <= i + 2;
 				when loop_input_two_r =>
 					state_decode      <= loop_input;
 					bram_br_data_in_a <= std_logic_vector(resize(unsigned(reg_S0), 16));
 					bram_br_address_a <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
 					bram_br_write_a   <= '1';
-
-					bram_bt_data_in_a <= std_logic_vector(to_unsigned(256, 32));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
-					bram_bt_write_a   <= '1';
 
 					i <= i + 2;
 				when next_recursion =>
@@ -292,18 +271,20 @@ begin
 				when loop_if_prep =>
 					state_decode <= loop_if_case;
 					if i = reg_length - 2 then
-						reg_m <= to_unsigned(M_array_squared(depth_counter * 2 + rounded_index_offset + 1), 32);
+						i_2_before_end := 1;
 					else
-						reg_m <= to_unsigned(M_array_squared(depth_counter * 2 + rounded_index_offset), 32);
+						i_2_before_end := 0;
 					end if;
+					reg_m        <= to_unsigned(M_array_squared_256_16384(depth_counter * 2 + rounded_index_offset + i_2_before_end), 32);
+					reg_m2        <= to_unsigned(M_array_squared(depth_counter * 2 + rounded_index_offset + i_2_before_end), 32);
 
 				when loop_if_case =>
-					if reg_m > (256 * 16383) then
+					if reg_m = 2 then
 						if input_valid = '1' then
 							state_decode <= loop_if_one_S0;
 							reg_S0       <= input;
 						end if;
-					elsif reg_m >= 16384 then
+					elsif reg_m = 1 then
 						if input_valid = '1' then
 							state_decode <= loop_if_two;
 							reg_S0       <= input;
@@ -316,10 +297,6 @@ begin
 						state_decode <= loop_if_one_S1;
 						reg_S1       <= input;
 					end if;
-
-					bram_bt_data_in_a <= std_logic_vector(to_unsigned(256 * 256, 32));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
-					bram_bt_write_a   <= '1';
 				when loop_if_one_S1 =>
 					state_decode <= loop_one_d;
 					i            <= i + 2;
@@ -327,14 +304,8 @@ begin
 					bram_br_data_in_a <= std_logic_vector(unsigned(reg_S0) + shift_left(resize(unsigned(reg_S1), 16), 8));
 					bram_br_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
 					bram_br_write_a   <= '1';
-
-					bram_bt_write_a <= '0';
 				when loop_if_two =>
 					state_decode <= next_loop;
-
-					bram_bt_data_in_a <= std_logic_vector(to_unsigned(256, 32));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
-					bram_bt_write_a   <= '1';
 
 					bram_br_data_in_a <= std_logic_vector(resize(unsigned(reg_S0), 16));
 					bram_br_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
@@ -342,10 +313,6 @@ begin
 
 				when loop_if_three =>
 					state_decode <= next_loop;
-
-					bram_bt_data_in_a <= std_logic_vector(to_unsigned(1, 32));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
-					bram_bt_write_a   <= '1';
 
 					bram_br_data_in_a <= (others => '0');
 					bram_br_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
@@ -355,7 +322,6 @@ begin
 					state_decode <= loop_one_d;
 					i            <= i + 2;
 
-					bram_bt_write_a <= '0';
 					bram_br_write_a <= '0';
 				when loop_two_prep =>
 					if depth_counter = 1 then
@@ -388,7 +354,6 @@ begin
 					end if;
 
 					bram_br_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
-					bram_bt_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
 					bram_R2_address_a <= std_logic_vector(to_unsigned(address_offset_next + i / 2, p_num_bits));
 
 					pop_stack       <= '0';
@@ -400,14 +365,22 @@ begin
 					state_decode <= loop_two_fma;
 				when loop_two_fma =>
 					state_decode <= loop_two_divmod;
-					if unsigned(bram_bt_data_out_a) = 1 then
+
+					if i = reg_length - 2 then
+						i_2_before_end := 1;
+					else
+						i_2_before_end := 0;
+					end if;
+
+					if to_unsigned(bottomt_array(depth_counter * 2 + rounded_index_offset + i_2_before_end), 2) = 0 then
 						reg_r <= resize(unsigned(bram_br_data_out_a) + unsigned(bram_R2_data_out_a), 32);
-					elsif unsigned(bram_bt_data_out_a) = 256 then
+					elsif to_unsigned(bottomt_array(depth_counter * 2 + rounded_index_offset + i_2_before_end), 2) = 1 then
 						reg_r <= unsigned(bram_br_data_out_a) + shift_left(resize(unsigned(bram_R2_data_out_a), 32), 8);
 					else
 						reg_r <= unsigned(bram_br_data_out_a) + shift_left(resize(unsigned(bram_R2_data_out_a), 32), 16);
 					end if;
-					reg_Mi0      <= to_unsigned(M_array(depth_counter + rounded_index_offset), 16);
+
+					reg_Mi0 <= to_unsigned(M_array(depth_counter + rounded_index_offset), 16);
 				when loop_two_divmod =>
 					state_decode <= loop_two_store;
 
@@ -455,25 +428,32 @@ begin
 					pop_stack              <= '0';
 					decode_command_pipe_in <= '0';
 					bram_br_address_a      <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
-					bram_bt_address_a      <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
 					bram_R2_address_a      <= std_logic_vector(to_unsigned(i / 2, p_num_bits));
 				when output_loop_wait =>
 					state_decode <= output_loop_fma;
 				when output_loop_fma =>
 					state_decode <= output_loop_divmod;
-					if unsigned(bram_bt_data_out_a) = 1 then
+
+					if i = reg_length - 2 then
+						i_2_before_end := 1;
+					else
+						i_2_before_end := 0;
+					end if;
+
+					if to_unsigned(bottomt_array(depth_counter * 2 + rounded_index_offset + i_2_before_end), 2) = 0 then
 						reg_r <= resize(unsigned(bram_br_data_out_a) + unsigned(bram_R2_data_out_a), 32);
-					elsif unsigned(bram_bt_data_out_a) = 256 then
+					elsif to_unsigned(bottomt_array(depth_counter * 2 + rounded_index_offset + i_2_before_end), 2) = 1 then
 						reg_r <= unsigned(bram_br_data_out_a) + shift_left(resize(unsigned(bram_R2_data_out_a), 32), 8);
 					else
 						reg_r <= unsigned(bram_br_data_out_a) + shift_left(resize(unsigned(bram_R2_data_out_a), 32), 16);
 					end if;
+
 				when output_loop_divmod =>
 					state_decode <= output_loop;
 
-					dividend          <= std_logic_vector(reg_r);
+					dividend <= std_logic_vector(reg_r);
 
-					divisor_index     <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
+					divisor_index <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
 
 					divisor_index_mod <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
 					store_cmd_pipe_in <= cmd_output_both;
@@ -487,9 +467,9 @@ begin
 				when output_end_write =>
 					state_decode       <= output_flush_pipe;
 					if i = reg_length - 1 then
-						dividend          <= std_logic_vector(resize(unsigned(bram_R2_data_out_a), 32));
+						dividend <= std_logic_vector(resize(unsigned(bram_R2_data_out_a), 32));
 
-						divisor_index     <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
+						divisor_index <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
 
 						divisor_index_mod <= std_logic_vector(to_unsigned(0 + rounded_index_offset, 7));
 						store_cmd_pipe_in <= cmd_output_r0_only;
@@ -534,13 +514,13 @@ begin
 	end process output_reg;
 
 	input_ack <= '0' when state_decode = idle
-		else '1' when state_decode = loop_input and i < reg_length - 1 and input_valid = '1'
-		else '1' when state_decode = loop_input_one and input_valid = '1' and rounded_decode = '0'
-		else '1' when state_decode = recursion_end and input_valid = '1' and M_array(depth_counter + rounded_index_offset) /= 1
-		else '1' when state_decode = recursion_end_2 and input_valid = '1' and reg_Mi0 > to_unsigned(256, 16)
-		else '1' when state_decode = loop_if_case and input_valid = '1' and reg_m >= 16384
-		else '1' when state_decode = loop_if_one_S0 and input_valid = '1'
-		else '0';
+	             else '1' when state_decode = loop_input and i < reg_length - 1 and input_valid = '1'
+	             else '1' when state_decode = loop_input_one and input_valid = '1' and rounded_decode = '0'
+	             else '1' when state_decode = recursion_end and input_valid = '1' and M_array(depth_counter + rounded_index_offset) /= 1
+	             else '1' when state_decode = recursion_end_2 and input_valid = '1' and reg_Mi0 > to_unsigned(256, 16)
+	             else '1' when state_decode = loop_if_case and input_valid = '1' and reg_m >= 1
+	             else '1' when state_decode = loop_if_one_S0 and input_valid = '1'
+	             else '0';
 
 	rounded_index_offset <= 0 when rounded_decode = '0' else 21;
 
@@ -631,7 +611,7 @@ begin
 			address_b  => bram_R2_address_b,
 			write_b    => bram_R2_write_b,
 			data_in_b  => bram_R2_data_in_b,
-			data_out_b => bram_R2_data_out_b
+			data_out_b => open
 		);
 
 	block_ram_bottomr : entity work.block_ram
@@ -648,27 +628,9 @@ begin
 			address_b  => bram_br_address_b,
 			write_b    => bram_br_write_b,
 			data_in_b  => bram_br_data_in_b,
-			data_out_b => bram_br_data_out_b
-		);
-	block_ram_bottomt : entity work.block_ram -- TODO this can be replaced with pre calcualted table
-		generic map(
-			ADDRESS_WIDTH => p_num_bits,
-			DATA_WIDTH    => 32
-		)
-		port map(
-			clock      => clock,
-			address_a  => bram_bt_address_a,
-			write_a    => bram_bt_write_a,
-			data_in_a  => bram_bt_data_in_a,
-			data_out_a => bram_bt_data_out_a,
-			address_b  => bram_bt_address_b,
-			write_b    => bram_bt_write_b,
-			data_in_b  => bram_bt_data_in_b,
-			data_out_b => bram_bt_data_out_b
+			data_out_b => open
 		);
 
 	bram_br_address_b <= (others => '0');
 	bram_br_data_in_b <= (others => '0');
-	bram_bt_address_b <= (others => '0');
-	bram_bt_data_in_b <= (others => '0');
 end architecture RTL;
