@@ -11,20 +11,20 @@ Since the paper was published, the code was improved, leading to a reduction of 
 
 The following table contains the performance numbers for the parameter set sntrup761:
 
-| Operation       | Cycle Count  | @ 269 MHz    |
+| Operation       | Cycle Count  | @ 270.2 MHz    |
 | :-------------- | :----------: | :----------: | 
-| Key Generation  | 1 304 742    | 4847 us      | 
-| Encapsulation   | 142 238      | 528 us       | 
-| Decapsulation   | 259 945      | 965 us       | 
+| Key Generation  | 1 304 606    | 4828 us      | 
+| Encapsulation   | 141 782      | 524.7 us       | 
+| Decapsulation   | 259 155      | 959.1 us       | 
 
 The following table contains the resources utilization:
 
 | Parameter set               | Slices       | LUT          | FF           | BRAM         | DSP          |
 | :---------------------------| :----------: | :----------: | :----------: | :----------: | :----------: |
-|  sntrup761 - All Operations | 1596         | 8933         | 5221         | 13           |19            |
-|  sntrup761 - Only Key Gen   | 1250         | 7192         | 4521         | 8.5          |13            |
-|  sntrup761 - Only Encap     | 1000         | 5584         | 3846         | 8.5          |8             |
-|  sntrup761 - Only Decap     | 1077         | 6094         | 4243         | 8.5          |8             |
+|  sntrup761 - All Operations | 1467         | 8214         | 4596         | 11.5         | 19           |
+|  sntrup761 - Only Key Gen   | 1073         | 5936         | 3567         | 8.5          | 12           |
+|  sntrup761 - Only Encap     | 899          | 4876         | 3172         | 7.5          | 8            |
+|  sntrup761 - Only Decap     | 984          | 5484         | 3287         | 7            | 8            |
 
 The top module is ntru_prime_top, the corrosponding testbench is tb_ntru_prime_top.
 
