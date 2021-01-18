@@ -39,7 +39,7 @@ end entity key_encap_wrapper;
 
 architecture RTL of key_encap_wrapper is
 
-	type state_type is (idle, new_key, key_ready, encap, encap_done, encode_c, encode_done, output_confirm, wait_hash, read_hash_out, done_state);
+	type state_type is (idle, new_key, new_key_and_encap, key_ready, encap, encap_done, encode_c, encode_done, output_confirm, wait_hash, read_hash_out, done_state);
 	signal state_enc_wrap : state_type;
 
 	signal key_encap_ready            : std_logic;
@@ -104,9 +104,9 @@ architecture RTL of key_encap_wrapper is
 	signal sha_c_encoded_in       : std_logic_vector(7 downto 0);
 	signal sha_c_encoded_in_valid : std_logic;
 
-	signal confirm_counter           : integer range 0 to 32;
-	signal cipher_confirm_valid      : std_logic;
-	signal cipher_confirm            : std_logic_vector(7 downto 0);
+	signal confirm_counter      : integer range 0 to 32;
+	signal cipher_confirm_valid : std_logic;
+	signal cipher_confirm       : std_logic_vector(7 downto 0);
 
 	signal sha_record_in  : sha_record_in_type;
 	signal sha_record_out : sha_record_out_type;
@@ -128,8 +128,8 @@ begin
 			decode_Rq_start           <= '0';
 			key_encap_start_encap     <= '0';
 			encode_Rq_input_valid     <= '0';
-			sha_start_confirm     <= '0';
-			sha_start_session     <= '0';
+			sha_start_confirm         <= '0';
+			sha_start_session         <= '0';
 			k_out_valid               <= '0';
 			cipher_confirm_valid      <= '0';
 			done                      <= '0';
@@ -138,16 +138,33 @@ begin
 		elsif rising_edge(clock) then
 			case state_enc_wrap is
 				when idle =>
-					if public_key_new = '1' then
+					if public_key_new = '1' and start_encap = '0' then
 						state_enc_wrap           <= new_key;
 						decode_Rq_start          <= '1';
 						key_encap_new_public_key <= '1';
+					end if;
+					if public_key_new = '1' and start_encap = '1' then
+						state_enc_wrap           <= new_key_and_encap;
+						decode_Rq_start          <= '1';
+						key_encap_new_public_key <= '1';
+						key_encap_start_encap    <= '1';
+						buffer_address_a         <= std_logic_vector(to_unsigned(p, p_num_bits));
 					end if;
 					ready                     <= '1';
 					done                      <= '0';
 					sha_hash_out_read_en      <= '0';
 					sha_hash_out_read_confirm <= '0';
 					k_out_valid               <= '0';
+				when new_key_and_encap =>
+					if key_encap_public_key_ready = '1' and key_encap_new_public_key /= '1' then
+						state_enc_wrap    <= encap;
+						public_key_is_set <= '1';
+						sha_start_confirm <= '1';
+					end if;
+					decode_Rq_start          <= '0';
+					key_encap_new_public_key <= '0';
+					ready                    <= '0';
+
 				when new_key =>
 					if key_encap_public_key_ready = '1' and key_encap_new_public_key /= '1' then
 						state_enc_wrap    <= key_ready;
@@ -158,16 +175,24 @@ begin
 					ready                    <= '0';
 
 				when key_ready =>
-					if start_encap = '1' then
+					if start_encap = '1' and public_key_new = '0' then
 						key_encap_start_encap <= '1';
 						state_enc_wrap        <= encap;
 						buffer_address_a      <= std_logic_vector(to_unsigned(p, p_num_bits));
-						sha_start_confirm <= '1';
+						sha_start_confirm     <= '1';
 					end if;
-					if public_key_new = '1' then
+					if public_key_new = '1' and start_encap = '0' then
 						state_enc_wrap           <= new_key;
 						decode_Rq_start          <= '1';
 						key_encap_new_public_key <= '1';
+						public_key_is_set        <= '0';
+					end if;
+					if public_key_new = '1' and start_encap = '1' then
+						state_enc_wrap           <= new_key_and_encap;
+						buffer_address_a         <= std_logic_vector(to_unsigned(p, p_num_bits));
+						decode_Rq_start          <= '1';
+						key_encap_new_public_key <= '1';
+						key_encap_start_encap    <= '1';
 						public_key_is_set        <= '0';
 					end if;
 					ready                     <= '1';
@@ -183,7 +208,7 @@ begin
 
 					key_encap_start_encap <= '0';
 					ready                 <= '0';
-					sha_start_confirm <= '0';
+					sha_start_confirm     <= '0';
 
 					sha_start_session <= '1';
 
@@ -193,7 +218,7 @@ begin
 				when encap_done =>
 					state_enc_wrap        <= encode_c;
 					encode_Rq_input_valid <= '1';
-					sha_start_session <= '0';
+					sha_start_session     <= '0';
 				when encode_c =>
 					if encode_Rq_input_ack = '1' then
 						state_enc_wrap <= encode_c;
@@ -386,9 +411,9 @@ begin
 	sha_record_in.hash_out_read_pub_key <= '0';
 	sha_record_in.hash_out_read_confirm <= sha_hash_out_read_confirm;
 
-	sha_finished          <= sha_record_out.hash_finished;
-	sha_ack_new_input     <= sha_record_out.hash_ack_new_input;
-	sha_hash_out          <= sha_record_out.hash_out;
+	sha_finished      <= sha_record_out.hash_finished;
+	sha_ack_new_input <= sha_record_out.hash_ack_new_input;
+	sha_hash_out      <= sha_record_out.hash_out;
 
 	to_sha         <= sha_record_in;
 	sha_record_out <= from_sha;

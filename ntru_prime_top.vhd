@@ -155,7 +155,7 @@ begin
 		elsif rising_edge(clock) then
 			case state_top is
 				when IDLE =>
-					if start_encap = '1' and key_encap_public_key_is_set = '1' then
+					if start_encap = '1' and (key_encap_public_key_is_set = '1' or set_new_public_key = '1') then
 						state_top <= ENCAP;
 					end if;
 					if start_decap = '1' and key_decap_key_is_set = '1' then
@@ -164,7 +164,7 @@ begin
 					if start_key_gen = '1' then
 						state_top <= KEY_GEN;
 					end if;
-					if set_new_public_key = '1' then
+					if set_new_public_key = '1' and start_encap ='0' then
 						state_top <= PREPARE_ENCAP;
 					end if;
 					if set_new_private_key = '1' then

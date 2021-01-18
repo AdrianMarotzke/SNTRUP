@@ -36,7 +36,7 @@ end entity key_encapsulation;
 
 architecture RTL of key_encapsulation is
 
-	type state_type is (init_state, write_public_key, ready_state, get_small_state, multiply_state, done_state);
+	type state_type is (init_state, write_public_key, write_key_and_get_weight, ready_state, get_small_state, multiply_state, done_state);
 	signal state_encap : state_type := init_state;
 
 	signal p_counter : integer range 0 to p;
@@ -94,12 +94,27 @@ begin
 		elsif rising_edge(clock) then
 			case state_encap is
 				when init_state =>
-					if new_public_key = '1' then
+					if new_public_key = '1' and start_encap = '0' then
 						state_encap <= write_public_key;
+					end if;
+					if new_public_key = '1' and start_encap = '1' then
+						state_encap         <= write_key_and_get_weight;
+						small_weights_start <= '1';
 					end if;
 					p_counter        <= 0;
 					ready            <= '1';
 					public_key_ready <= '0';
+				when write_key_and_get_weight =>
+					if public_key_valid = '1' and p_counter /= p - 1 then
+						p_counter <= p_counter + 1;
+					end if;
+					if p_counter = p - 1 and public_key_valid = '1' then
+						state_encap      <= get_small_state;
+						public_key_ready <= '1';
+						p_counter        <= 0;
+					end if;
+					ready               <= '0';
+					small_weights_start <= '0';
 				when write_public_key =>
 					if public_key_valid = '1' and p_counter /= p - 1 then
 						p_counter <= p_counter + 1;
@@ -115,10 +130,16 @@ begin
 						small_weights_start <= '1';
 						p_counter           <= 0;
 					end if;
-					if new_public_key = '1' then
+					if new_public_key = '1' and start_encap = '0' then
 						state_encap      <= write_public_key;
 						p_counter        <= 0;
 						public_key_ready <= '0';
+					end if;
+					if new_public_key = '1' and start_encap = '1' then
+						state_encap         <= write_key_and_get_weight;
+						small_weights_start <= '1';
+						p_counter           <= 0;
+						public_key_ready    <= '0';
 					end if;
 					ready <= '1';
 					done  <= '0';
@@ -148,8 +169,8 @@ begin
 	end process fsm_process;
 
 	bram_pk_data_in_a <= public_key_in;
-	bram_pk_write_a   <= public_key_valid when state_encap = write_public_key else '0';
-	bram_pk_address_a <= std_logic_vector(to_unsigned(p_counter, p_num_bits)) when state_encap = write_public_key else rq_mult_bram_pk_address_a;
+	bram_pk_write_a   <= public_key_valid when state_encap = write_public_key or state_encap = write_key_and_get_weight else '0';
+	bram_pk_address_a <= std_logic_vector(to_unsigned(p_counter, p_num_bits)) when state_encap = write_public_key or state_encap = write_key_and_get_weight else rq_mult_bram_pk_address_a;
 
 	bram_r_data_in_a <= std_logic_vector(small_weights_out);
 	bram_r_write_a   <= small_weights_valid when state_encap = get_small_state else '0';
