@@ -49,7 +49,7 @@ architecture RTL of rq_reciprocal_3 is
 	constant reciproc_3 : integer := modq_reciprocal(3);
 
 	signal counter             : integer range 0 to loop_limit + 1 := 0;
-	type state_type is (init_state, reset_ram, ready_state, running_state, swap_state_1, swap_state_2, swap_state_3, multiply_state_read, multiply_final_state_1, multiply_final_state_2, calc_reciprocal_init, calc_reciprocal_init_2, calc_reciprocal, output_data, done_state);
+	type state_type is (init_state, reset_ram, ready_state, running_state, swap_state_1, swap_state_2, swap_state_3, multiply_state_read, multiply_final_state_1, multiply_final_state_2, multiply_final_state_3, calc_reciprocal_init, calc_reciprocal_init_2, calc_reciprocal, output_data, done_state);
 	signal state_rq_reciprocal : state_type;
 
 	signal counter_vr : integer range 0 to p + 2;
@@ -86,7 +86,7 @@ architecture RTL of rq_reciprocal_3 is
 
 	signal bram_g_data_in_b : std_logic_vector(q_num_bits - 1 downto 0);
 
-	constant pipeline_length : integer := 4;
+	constant pipeline_length : integer := 5;
 
 	type address_delay is array (pipeline_length downto 0) of std_logic_vector(bram_address_width - 1 downto 0);
 
@@ -151,6 +151,7 @@ begin
 			bram_r_write_b_delay(0) <= '0';
 
 			done <= '0';
+			ready <= '0';
 
 			output_valid_pipe(0) <= '0';
 		elsif rising_edge(clock) then
@@ -306,6 +307,13 @@ begin
 					bram_f_address_a <= (others => '0');
 					bram_g_address_a <= (others => '0');
 				when multiply_final_state_2 =>
+					state_rq_reciprocal     <= multiply_final_state_3;
+					bram_shift_v_write_b    <= '0';
+					bram_g_write_b_delay(0) <= '0';
+
+					bram_v_address_a <= (others => '0');
+					bram_r_address_a <= (others => '0');
+				when multiply_final_state_3 =>
 					state_rq_reciprocal     <= running_state;
 					bram_shift_v_write_b    <= '0';
 					bram_g_write_b_delay(0) <= '0';
@@ -371,13 +379,13 @@ begin
 	delay_output_valid : process(clock, reset) is
 	begin
 		if reset = '1' then
-			output_valid_pipe(pipeline_length downto 1) <= (others => '0');
+			--output_valid_pipe(pipeline_length downto 1) <= (others => '0');
 		elsif rising_edge(clock) then
 			output_valid_pipe(pipeline_length downto 1) <= output_valid_pipe(pipeline_length - 1 downto 0);
 		end if;
 	end process delay_output_valid;
 
-	output_valid <= output_valid_pipe(pipeline_length);
+	output_valid <= output_valid_pipe(pipeline_length-1);
 
 	-- Multiplication of f0*g[i]-g0*f[i]
 	modq_minus_product_inst_fg : entity work.modq_minus_product
@@ -398,8 +406,8 @@ begin
 	delay_bram_g_port_b : process(clock, reset) is
 	begin
 		if reset = '1' then
-			bram_g_address_b_delay(pipeline_length downto 1) <= (others => (others => '0'));
-			bram_g_write_b_delay(pipeline_length downto 1)   <= (others => '0');
+			--bram_g_address_b_delay(pipeline_length downto 1) <= (others => (others => '0'));
+			--bram_g_write_b_delay(pipeline_length downto 1)   <= (others => '0');
 		else
 
 			if rising_edge(clock) then
@@ -436,8 +444,8 @@ begin
 	delay_bram_r_port_b : process(clock, reset) is
 	begin
 		if reset = '1' then
-			bram_r_address_b_delay(pipeline_length downto 1) <= (others => (others => '0'));
-			bram_r_write_b_delay(pipeline_length downto 1)   <= (others => '0');
+			--bram_r_address_b_delay(pipeline_length downto 1) <= (others => (others => '0'));
+			--bram_r_write_b_delay(pipeline_length downto 1)   <= (others => '0');
 		else
 			if rising_edge(clock) then
 				bram_r_address_b_delay(pipeline_length downto 1) <= bram_r_address_b_delay(pipeline_length - 1 downto 0);

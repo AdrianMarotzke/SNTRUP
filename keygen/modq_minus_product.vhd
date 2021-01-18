@@ -38,7 +38,7 @@ begin
 	ref_mult_a <= f_zero_sign * data_in_a_sign when rising_edge(clock);
 	ref_mult_b <= g_zero_sign * data_in_b_sign when rising_edge(clock);
 
-	minus_multiplication <= ref_mult_a - ref_mult_b;
+	minus_multiplication <= ref_mult_a - ref_mult_b when rising_edge(clock); 
 
 	modq_freeze_inst : entity work.modq_freeze(RTL)
 		port map(
