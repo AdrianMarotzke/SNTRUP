@@ -59,8 +59,8 @@ architecture RTL of sort_bram is
 
 	signal bram_write_fsm : std_logic;
 
-	signal skip_s : std_logic; -- signasl for simulator wave diagram
-	
+	signal skip_s : std_logic;          -- signasl for simulator wave diagram
+
 	-- Procedure to calculate the current state, ram addresses and indicies in the for loops
 	-- The folowing sorting loop is used:
 	-- for (p = top;p > 0;p >>= 1) {
@@ -75,7 +75,7 @@ architecture RTL of sort_bram is
 	procedure calc_loop_states(variable p_v, q_v, i_v                : inout integer;
 	                           signal loop_state                     : inout loop_state_type;
 	                           signal bram_address_a, bram_address_b : out std_logic_vector;
-	                           variable skip                         : out std_ulogic
+	                           variable skip                         : inout std_ulogic
 	                          ) is
 
 	begin
@@ -87,9 +87,13 @@ architecture RTL of sort_bram is
 			if (to_unsigned(i_v, 16) AND to_unsigned(p_v, 16)) = 0 then
 				skip := '0';
 			else
-				skip := '1';
+				i_v := i_v + p_v;
+				if i_v >= NUMBER_OF_ELEMENTS - p_v then
+					skip           := '1';
+				end if;
+				bram_address_a <= std_logic_vector(to_unsigned(i_v, ADDRESS_WIDTH));
+				bram_address_b <= std_logic_vector(to_unsigned(i_v + p_v, ADDRESS_WIDTH));
 			end if;
-
 			i_v := i_v + 1;
 
 			if i_v >= NUMBER_OF_ELEMENTS - p_v then
@@ -105,6 +109,11 @@ architecture RTL of sort_bram is
 
 			else
 				loop_state <= loop_p_i;
+
+				if skip = '1' then
+					skip := '0';
+				end if;
+
 			end if;
 		else
 			bram_address_a <= std_logic_vector(to_unsigned(i_v + p_v, ADDRESS_WIDTH));
@@ -113,10 +122,14 @@ architecture RTL of sort_bram is
 			if (to_unsigned(i_v, 16) AND to_unsigned(p_v, 16)) = 0 then
 				skip := '0';
 			else
-				skip := '1';
+				i_v            := i_v + p_v;
+				if i_v >= NUMBER_OF_ELEMENTS - q_v then
+					skip           := '1';
+				end if;
+				bram_address_a <= std_logic_vector(to_unsigned(i_v + p_v, ADDRESS_WIDTH));
+				bram_address_b <= std_logic_vector(to_unsigned(i_v + q_v, ADDRESS_WIDTH));
 			end if;
-
-			i_v := i_v + 1;
+			i_v  := i_v + 1;
 
 			if i_v >= NUMBER_OF_ELEMENTS - q_v then
 				q_v := to_integer(shift_right(to_unsigned(q_v, 32), 1));
@@ -131,11 +144,13 @@ architecture RTL of sort_bram is
 
 					loop_state <= loop_p_i;
 				end if;
-
 			end if;
 		end if;
 	end procedure calc_loop_states;
 
+	signal p_v_s : integer range 0 to TOP + 1                := TOP;
+	signal q_v_s : integer range 0 to TOP + 1                := TOP;
+	signal i_v_s : integer range 0 to NUMBER_OF_ELEMENTS + 1 := 0;
 begin
 
 	process(clock, reset) is
@@ -204,6 +219,9 @@ begin
 					state_sort     <= init;
 			end case;
 			skip_s <= skip;
+			p_v_s  <= p_v;
+			i_v_s  <= i_v;
+			q_v_s  <= q_v;
 		end if;
 	end process;
 
