@@ -3,18 +3,19 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 
---use work.constants.all;
+use work.constants.all;
+use work.data_type.all;
 
 -- Top module for the karatsuba multiplication.
 entity rq_mult_karatsuba_2bit is
-	generic(
-		q_num_bits        : integer := 13;
-		q                 : integer := 4591;
-		q_half            : integer := 2296;
-		p_num_bits        : integer := 10;
-		p                 : integer := 761;
-		layer_2_karatsuba : boolean := true
-	);
+	--	generic(
+	--		q_num_bits        : integer := 13;
+	--		q                 : integer := 4591;
+	--		q_half            : integer := 2296;
+	--		p_num_bits        : integer := 10;
+	--		p                 : integer := 761;
+	--		layer_2_karatsuba : boolean := true
+	--	);
 	port(
 		clock             : in  std_logic;
 		reset             : in  std_logic;
@@ -43,7 +44,7 @@ architecture RTL of rq_mult_karatsuba_2bit is
 	constant bram_address_result_width : integer := p_num_bits + 1;
 
 	type state_type is (IDLE, PREPARE_RAM, PAUSE, START_MULT, STORE_MULT_Z0, STORE2_MULT_Z0, STORE_MULT_Z1, STORE_MULT_Z2, STORE2_MULT_Z2,
-	                    POST_PROCESS, POST_PROCESS_1, POST_PROCESS_2, FINAL_INIT, FINAL_LOOP, FINAL_LOOP_DONE, DONE_STATE
+	                    POST_PROCESS, POST_PROCESS_1, POST_PROCESS_2, FINAL_INIT, FINAL_LOOP, DONE_STATE
 	                   );
 	signal state_mult_kar : state_type;
 
@@ -177,7 +178,20 @@ architecture RTL of rq_mult_karatsuba_2bit is
 	signal bram_result_address_a_final : std_logic_vector(bram_address_result_width - 1 downto 0);
 	signal bram_result_address_b_final : std_logic_vector(bram_address_result_width - 1 downto 0);
 
-	signal result_reduce_temp : signed(q_num_bits - 1 downto 0);
+	signal result_reduce_temp : signed(q_num_bits downto 0);
+
+	signal output_record     : mult_output;
+	signal ram_address_low   : mult_ram_address;
+	signal ram_data_low      : mult_ram_data;
+	signal ram_address_high  : mult_ram_address;
+	signal ram_data_high     : mult_ram_data;
+	signal ram_address_mid   : mult_ram_address;
+	signal ram_data_mid      : mult_ram_data_3bit;
+	signal mult_start        : std_logic;
+	signal mult_ready        : std_logic;
+	signal mult_output_valid : std_logic;
+	signal mult_output_ack   : std_logic;
+	signal mult_done         : std_logic;
 begin
 
 	fsm_process : process(clock, reset) is
@@ -230,7 +244,7 @@ begin
 						counter_result <= counter_result + 1;
 					else
 						state_mult_kar <= STORE_MULT_Z0;
-						counter_result <= p - 3;
+						counter_result <= p - 1; --p - 3;
 					end if;
 
 					mult_z0_start <= '0';
@@ -242,22 +256,21 @@ begin
 
 					end if;
 
-					if counter_result = 0 then
-						counter_result <= m2 + p - 2;
+					if counter_result = 0 and mult_z0_done = '1' then
+						counter_result <= m2 + p;-- - 2;
 						state_mult_kar <= STORE2_MULT_Z0;
 					end if;
 					mult_z0_output_ack <= '1';
 				when STORE2_MULT_Z0 =>
+					if mult_z0_output_valid = '1' then
+						counter_result <= counter_result - 1;
+					end if;
+
 					if mult_z0_done = '1' then
 						state_mult_kar     <= STORE_MULT_Z1;
 						counter_result     <= m2 + p - 2;
 						mult_z1_output_ack <= '1';
 						mult_z0_output_ack <= '0';
-					end if;
-
-					if mult_z0_output_valid = '1' then
-						counter_result <= counter_result - 1;
-
 					end if;
 				when STORE_MULT_Z1 =>
 					if mult_z1_output_valid = '1' then
@@ -305,22 +318,15 @@ begin
 					bram_result_address_b_final <= std_logic_vector(to_unsigned(counter_result, bram_address_result_width));
 					counter_result              <= counter_result - 1;
 				when FINAL_INIT =>
-					result_reduce_temp          <= signed(bram_result_data_out_b);
+					result_reduce_temp          <= resize(signed(bram_result_data_out_b), q_num_bits + 1);
 					state_mult_kar              <= FINAL_LOOP;
 					bram_result_address_a_final <= std_logic_vector(to_unsigned(counter_result - p, bram_address_result_width));
 					bram_result_address_b_final <= std_logic_vector(to_unsigned(counter_result, bram_address_result_width));
 				when FINAL_LOOP =>
 					result_reduce_temp_var := resize(signed(bram_result_data_out_a), q_num_bits + 1) + signed(bram_result_data_out_b);
-					if result_reduce_temp_var > q_half then
-						result_reduce_temp_var := result_reduce_temp_var - q;
-					elsif result_reduce_temp_var < -q_half then
-						result_reduce_temp_var := result_reduce_temp_var + q;
-					else
-						result_reduce_temp_var := result_reduce_temp_var;
-					end if;
-					result_reduce_temp     <= result_reduce_temp_var(q_num_bits - 1 downto 0);
+					result_reduce_temp     <= result_reduce_temp_var;
 
-					if counter_result >= p then
+					if counter_result >= p-1 then
 						state_mult_kar <= FINAL_LOOP;
 
 						counter_result <= counter_result - 1;
@@ -328,11 +334,12 @@ begin
 						bram_result_address_a_final <= std_logic_vector(to_unsigned(counter_result - 1 - p, bram_address_result_width));
 						bram_result_address_b_final <= std_logic_vector(to_unsigned(counter_result - 1, bram_address_result_width));
 
+						output_var := result_reduce_temp + signed(bram_result_data_out_b);
 					else
-						state_mult_kar <= FINAL_LOOP_DONE;
+						state_mult_kar <= DONE_STATE;
+						output_var := result_reduce_temp;
 					end if;
 
-					output_var := resize(result_reduce_temp, q_num_bits + 1) + signed(bram_result_data_out_b);
 					if output_var >= q_half then
 						output_var := (output_var - q);
 					elsif output_var <= -q_half then
@@ -341,12 +348,10 @@ begin
 						output_var := (output_var);
 					end if;
 
+					assert output_var < q_half AND output_var > -q_half report "output var out of bounds!" severity error;
+					
 					output_valid <= '1';
 					output       <= std_logic_vector(output_var(q_num_bits - 1 downto 0));
-				when FINAL_LOOP_DONE =>
-					state_mult_kar <= DONE_STATE;
-					output_valid   <= '1';
-					output         <= std_logic_vector(result_reduce_temp_var(q_num_bits - 1 downto 0));
 				when DONE_STATE =>
 					state_mult_kar <= IDLE;
 					output_valid   <= '0';
@@ -392,7 +397,7 @@ begin
 	mult_z1_bram_g_data_out_a <= bram_lowhigh2_data_out_a;
 	mult_z1_bram_g_data_out_b <= bram_lowhigh2_data_out_b;
 
-	bram_low1_data_in_a  <= bram_f_data_out_a;
+	bram_low1_data_in_a  <= bram_f_data_out_a when counter_low /= p / 2 + 1 else (others => '0');
 	bram_high1_data_in_a <= bram_f_data_out_b;
 
 	bram_f_data_out_a_delay <= bram_f_data_out_a when rising_edge(clock);
@@ -404,7 +409,7 @@ begin
 	                             else lowhigh1_data_in_a;
 	bram_lowhigh1_data_in_a   <= std_logic_vector(lowhigh1_data_in_a_freeze(q_num_bits - 1 downto 0));
 
-	bram_low2_data_in_a  <= bram_g_data_out_a;
+	bram_low2_data_in_a  <= bram_g_data_out_a when counter_low /= p / 2 + 1 else (others => '0');
 	bram_high2_data_in_a <= bram_g_data_out_b;
 
 	bram_g_data_out_a_delay <= bram_g_data_out_a when rising_edge(clock);
@@ -413,11 +418,11 @@ begin
 
 	bram_lowhigh2_data_in_a <= std_logic_vector(lowhigh2_data_in_a) when counter_low /= 1 else std_logic_vector(resize(signed(bram_g_data_out_b), 3));
 
-	bram_low1_write_a     <= bram_write when counter_low /= p / 2 + 1 else '0';
+	bram_low1_write_a     <= bram_write; -- when counter_low /= p / 2 + 1 else '0';
 	bram_low1_write_b     <= '0';
 	bram_high1_write_a    <= bram_write;
 	bram_high1_write_b    <= '0';
-	bram_low2_write_a     <= bram_write when counter_low /= p / 2 + 1 else '0';
+	bram_low2_write_a     <= bram_write; -- when counter_low /= p / 2 + 1 else '0';
 	bram_low2_write_b     <= '0';
 	bram_high2_write_a    <= bram_write;
 	bram_high2_write_b    <= '0';
@@ -554,14 +559,14 @@ begin
 			data_out_b => bram_lowhigh2_data_out_b
 		);
 
-	gen_2nd_layer_karatsuba : if layer_2_karatsuba generate
+	gen_2nd_layer_karatsuba : if use_2nd_layer_karatsuba generate
 		rq_mult_karatsuba_2bit_inst : entity work.rq_mult_karatsuba_2bit_2nd_layer
 			generic map(
 				q_num_bits => q_num_bits,
 				q          => q,
 				q_half     => q_half,
 				p_num_bits => split_address_width,
-				p          => p / 2
+				p          => p / 2 + 1
 			)
 			port map(
 				clock             => clock,
@@ -637,35 +642,9 @@ begin
 			);
 	end generate gen_2nd_layer_karatsuba;
 
-	gen_schoolbook_mult : if NOT layer_2_karatsuba generate
-		rq_mult_generic_z0 : entity work.rq_mult_generic
-			generic map(
-				q_num_bits => q_num_bits,
-				q          => q,
-				q_half     => q_half,
-				p_num_bits => split_address_width,
-				p          => p / 2
-			)
-			port map(
-				clock             => clock,
-				reset             => reset,
-				start             => mult_z0_start,
-				ready             => mult_z0_ready,
-				output_valid      => mult_z0_output_valid,
-				output            => mult_z0_output,
-				output_ack        => mult_z0_output_ack,
-				done              => mult_z0_done,
-				bram_f_address_a  => mult_z0_bram_f_address_a,
-				bram_f_data_out_a => mult_z0_bram_f_data_out_a,
-				bram_f_address_b  => mult_z0_bram_f_address_b,
-				bram_f_data_out_b => mult_z0_bram_f_data_out_b,
-				bram_g_address_a  => mult_z0_bram_g_address_a,
-				bram_g_data_out_a => mult_z0_bram_g_data_out_a,
-				bram_g_address_b  => mult_z0_bram_g_address_b,
-				bram_g_data_out_b => mult_z0_bram_g_data_out_b
-			);
+	gen_schoolbook_mult : if NOT use_2nd_layer_karatsuba generate
 
-		rq_mult_generic_z1 : entity work.rq_mult_generic_3bit
+		rq_mult_generic_x3_inst : entity work.rq_mult_generic_x3
 			generic map(
 				q_num_bits => q_num_bits,
 				q          => q,
@@ -674,50 +653,69 @@ begin
 				p          => p / 2 + 1
 			)
 			port map(
-				clock             => clock,
-				reset             => reset,
-				start             => mult_z1_start,
-				ready             => mult_z1_ready,
-				output_valid      => mult_z1_output_valid,
-				output            => mult_z1_output,
-				output_ack        => mult_z1_output_ack,
-				done              => mult_z1_done,
-				bram_f_address_a  => mult_z1_bram_f_address_a,
-				bram_f_data_out_a => mult_z1_bram_f_data_out_a,
-				bram_f_address_b  => mult_z1_bram_f_address_b,
-				bram_f_data_out_b => mult_z1_bram_f_data_out_b,
-				bram_g_address_a  => mult_z1_bram_g_address_a,
-				bram_g_data_out_a => mult_z1_bram_g_data_out_a,
-				bram_g_address_b  => mult_z1_bram_g_address_b,
-				bram_g_data_out_b => mult_z1_bram_g_data_out_b
+				clock            => clock,
+				reset            => reset,
+				start            => mult_start,
+				ready            => mult_ready,
+				output_valid     => mult_output_valid,
+				output           => output_record,
+				output_ack       => mult_output_ack,
+				done             => mult_done,
+				ram_address_low  => ram_address_low,
+				ram_data_low     => ram_data_low,
+				ram_address_high => ram_address_high,
+				ram_data_high    => ram_data_high,
+				ram_address_mid  => ram_address_mid,
+				ram_data_mid     => ram_data_mid
 			);
 
-		rq_mult_generic_z2 : entity work.rq_mult_generic
-			generic map(
-				q_num_bits => q_num_bits,
-				q          => q,
-				q_half     => q_half,
-				p_num_bits => split_address_width,
-				p          => p / 2 + 1
-			)
-			port map(
-				clock             => clock,
-				reset             => reset,
-				start             => mult_z2_start,
-				ready             => mult_z2_ready,
-				output_valid      => mult_z2_output_valid,
-				output            => mult_z2_output,
-				output_ack        => mult_z2_output_ack,
-				done              => mult_z2_done,
-				bram_f_address_a  => mult_z2_bram_f_address_a,
-				bram_f_data_out_a => mult_z2_bram_f_data_out_a,
-				bram_f_address_b  => mult_z2_bram_f_address_b,
-				bram_f_data_out_b => mult_z2_bram_f_data_out_b,
-				bram_g_address_a  => mult_z2_bram_g_address_a,
-				bram_g_data_out_a => mult_z2_bram_g_data_out_a,
-				bram_g_address_b  => mult_z2_bram_g_address_b,
-				bram_g_data_out_b => mult_z2_bram_g_data_out_b
-			);
+		ram_data_low.f_data_out_a <= mult_z0_bram_f_data_out_a;
+		ram_data_low.f_data_out_b <= mult_z0_bram_f_data_out_b;
+		ram_data_low.g_data_out_a <= mult_z0_bram_g_data_out_a;
+		ram_data_low.g_data_out_b <= mult_z0_bram_g_data_out_b;
+
+		mult_z0_bram_f_address_a <= ram_address_low.bram_f_address_a(split_address_width - 1 downto 0);
+		mult_z0_bram_f_address_b <= ram_address_low.bram_f_address_b(split_address_width - 1 downto 0);
+		mult_z0_bram_g_address_a <= ram_address_low.bram_g_address_a(split_address_width - 1 downto 0);
+		mult_z0_bram_g_address_b <= ram_address_low.bram_g_address_b(split_address_width - 1 downto 0);
+
+		ram_data_mid.f_data_out_a <= mult_z1_bram_f_data_out_a;
+		ram_data_mid.f_data_out_b <= mult_z1_bram_f_data_out_b;
+		ram_data_mid.g_data_out_a <= mult_z1_bram_g_data_out_a;
+		ram_data_mid.g_data_out_b <= mult_z1_bram_g_data_out_b;
+
+		mult_z1_bram_f_address_a <= ram_address_mid.bram_f_address_a(split_address_width - 1 downto 0);
+		mult_z1_bram_f_address_b <= ram_address_mid.bram_f_address_b(split_address_width - 1 downto 0);
+		mult_z1_bram_g_address_a <= ram_address_mid.bram_g_address_a(split_address_width - 1 downto 0);
+		mult_z1_bram_g_address_b <= ram_address_mid.bram_g_address_b(split_address_width - 1 downto 0);
+
+		ram_data_high.f_data_out_a <= mult_z2_bram_f_data_out_a;
+		ram_data_high.f_data_out_b <= mult_z2_bram_f_data_out_b;
+		ram_data_high.g_data_out_a <= mult_z2_bram_g_data_out_a;
+		ram_data_high.g_data_out_b <= mult_z2_bram_g_data_out_b;
+
+		mult_z2_bram_f_address_a <= ram_address_high.bram_f_address_a(split_address_width - 1 downto 0);
+		mult_z2_bram_f_address_b <= ram_address_high.bram_f_address_b(split_address_width - 1 downto 0);
+		mult_z2_bram_g_address_a <= ram_address_high.bram_g_address_a(split_address_width - 1 downto 0);
+		mult_z2_bram_g_address_b <= ram_address_high.bram_g_address_b(split_address_width - 1 downto 0);
+
+		mult_z0_output <= output_record.output_low;
+		mult_z1_output <= output_record.output_mid;
+		mult_z2_output <= output_record.output_high;
+
+		mult_output_ack <= mult_z0_output_ack or mult_z1_output_ack or mult_z2_output_ack;
+
+		mult_ready <= mult_z0_ready or mult_z1_ready or mult_z2_ready;
+
+		mult_z0_done <= mult_done;
+		mult_z1_done <= mult_done;
+		mult_z2_done <= mult_done;
+
+		mult_z0_output_valid <= mult_output_valid;
+		mult_z1_output_valid <= mult_output_valid;
+		mult_z2_output_valid <= mult_output_valid;
+
+		mult_start <= mult_z0_start or mult_z1_start or mult_z2_start;
 
 	end generate gen_schoolbook_mult;
 

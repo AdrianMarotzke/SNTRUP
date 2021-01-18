@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 use ieee.math_real.all;
 
 --use work.constants.all;
+use work.data_type.all;
 
 -- Top module for the karatsuba multiplication.
 entity rq_mult_karatsuba_2bit_2nd_layer is
@@ -181,6 +182,18 @@ architecture RTL of rq_mult_karatsuba_2bit_2nd_layer is
 	signal bram_result_address_b_final : std_logic_vector(bram_address_result_width - 1 downto 0);
 
 	signal second_output_loop : std_logic;
+	signal mult_start : std_logic;
+	signal mult_ready : std_logic;
+	signal mult_output_valid : std_logic;
+	signal output_record : mult_output;
+	signal mult_output_ack : std_logic;
+	signal mult_done : std_logic;
+	signal ram_address_low : mult_ram_address;
+	signal ram_data_low : mult_ram_data;
+	signal ram_address_high : mult_ram_address;
+	signal ram_data_high : mult_ram_data;
+	signal ram_address_mid : mult_ram_address;
+	signal ram_data_mid : mult_ram_data_3bit;
 begin
 
 	fsm_process : process(clock, reset) is
@@ -232,7 +245,7 @@ begin
 						counter_result <= counter_result + 1;
 					else
 						state_mult_kar <= STORE_MULT_Z0;
-						counter_result <= p - 2 - is_degree_odd; -- this is -3 if polynomails do not have the same degree
+						counter_result <= p - is_degree_odd;
 					end if;
 
 					mult_z0_start <= '0';
@@ -244,22 +257,21 @@ begin
 
 					end if;
 
-					if counter_result = 0 then
-						counter_result <= m2 + p - 2;
+					if counter_result = 0 and mult_z0_done = '1' then
+						counter_result <= m2 + p;
 						state_mult_kar <= STORE2_MULT_Z0;
 					end if;
 					mult_z0_output_ack <= '1';
 				when STORE2_MULT_Z0 =>
-					if mult_z0_done = '1' then
-						state_mult_kar     <= STORE_MULT_Z1;
-						counter_result     <= m2 + p - 2; 
-						mult_z1_output_ack <= '1';
-						mult_z0_output_ack <= '0';
-					end if;
-
 					if mult_z0_output_valid = '1' then
 						counter_result <= counter_result - 1;
+					end if;
 
+					if mult_z0_done = '1' then
+						state_mult_kar     <= STORE_MULT_Z1;
+						counter_result     <= m2 + p - 2;
+						mult_z1_output_ack <= '1';
+						mult_z0_output_ack <= '0';
 					end if;
 				when STORE_MULT_Z1 =>
 					if mult_z1_output_valid = '1' then
@@ -271,7 +283,7 @@ begin
 						state_mult_kar     <= STORE_MULT_Z2;
 						mult_z2_output_ack <= '1';
 						mult_z1_output_ack <= '0';
-						counter_result     <= 2 * m2 + p - 2 + is_degree_odd;
+						counter_result     <= 2 * m2 + p - is_degree_odd;
 					end if;
 				when STORE_MULT_Z2 =>
 					if mult_z2_output_valid = '1' then
@@ -280,7 +292,7 @@ begin
 					end if;
 
 					if counter_result = 2 * m2 then
-						counter_result <= m2 + p - 2; 
+						counter_result <= m2 + p - 2;
 						state_mult_kar <= STORE2_MULT_Z2;
 					end if;
 				when STORE2_MULT_Z2 =>
@@ -299,6 +311,7 @@ begin
 						state_mult_kar <= POST_PROCESS_1;
 					end if;
 					output_valid   <= '0';
+					done           <= '0';
 				when POST_PROCESS_1 =>
 					state_mult_kar <= POST_PROCESS_2;
 				when POST_PROCESS_2 =>
@@ -328,6 +341,7 @@ begin
 					else
 						second_output_loop <= '1';
 						state_mult_kar     <= POST_PROCESS;
+						done               <= '1';
 					end if;
 					output_valid <= '1';
 					output       <= bram_result_data_out_a;
@@ -376,7 +390,7 @@ begin
 	mult_z1_bram_g_data_out_a <= bram_lowhigh2_data_out_a;
 	mult_z1_bram_g_data_out_b <= bram_lowhigh2_data_out_b;
 
-	bram_low1_data_in_a  <= bram_f_data_out_a;
+	bram_low1_data_in_a  <= bram_f_data_out_a when counter_low /= p / 2 + 1 else (others => '0');
 	bram_high1_data_in_a <= bram_f_data_out_b;
 
 	bram_f_data_out_a_odd   <= bram_f_data_out_a when rising_edge(clock);
@@ -389,7 +403,7 @@ begin
 	                             else lowhigh1_data_in_a;
 	bram_lowhigh1_data_in_a   <= std_logic_vector(lowhigh1_data_in_a_freeze(q_num_bits - 1 downto 0));
 
-	bram_low2_data_in_a  <= bram_g_data_out_a;
+	bram_low2_data_in_a  <= bram_g_data_out_a when counter_low /= p / 2 + 1 else (others => '0');
 	bram_high2_data_in_a <= bram_g_data_out_b;
 
 	bram_g_data_out_a_odd   <= bram_g_data_out_a when rising_edge(clock);
@@ -399,11 +413,11 @@ begin
 
 	bram_lowhigh2_data_in_a <= std_logic_vector(lowhigh2_data_in_a) when counter_low /= 1 or is_degree_odd = 0 else std_logic_vector(resize(signed(bram_g_data_out_b), 3));
 
-	bram_low1_write_a     <= bram_write when counter_low /= p / 2 + 1 or is_degree_odd = 0 else '0';
+	bram_low1_write_a     <= bram_write;-- when counter_low /= p / 2 + 1 or is_degree_odd = 0 else '0';
 	bram_low1_write_b     <= '0';
 	bram_high1_write_a    <= bram_write;
 	bram_high1_write_b    <= '0';
-	bram_low2_write_a     <= bram_write when counter_low /= p / 2 + 1 or is_degree_odd = 0 else '0';
+	bram_low2_write_a     <= bram_write;-- when counter_low /= p / 2 + 1 or is_degree_odd = 0 else '0';
 	bram_low2_write_b     <= '0';
 	bram_high2_write_a    <= bram_write;
 	bram_high2_write_b    <= '0';
@@ -540,87 +554,79 @@ begin
 			data_out_b => bram_lowhigh2_data_out_b
 		);
 
-	rq_mult_generic_z0 : entity work.rq_mult_generic
+	rq_mult_generic_x3_inst : entity work.rq_mult_generic_x3
 		generic map(
 			q_num_bits => q_num_bits,
 			q          => q,
 			q_half     => q_half,
 			p_num_bits => split_address_width,
-			p          => p / 2
+			p          => p / 2 + 1
 		)
 		port map(
-			clock             => clock,
-			reset             => reset,
-			start             => mult_z0_start,
-			ready             => mult_z0_ready,
-			output_valid      => mult_z0_output_valid,
-			output            => mult_z0_output,
-			output_ack        => mult_z0_output_ack,
-			done              => mult_z0_done,
-			bram_f_address_a  => mult_z0_bram_f_address_a,
-			bram_f_data_out_a => mult_z0_bram_f_data_out_a,
-			bram_f_address_b  => mult_z0_bram_f_address_b,
-			bram_f_data_out_b => mult_z0_bram_f_data_out_b,
-			bram_g_address_a  => mult_z0_bram_g_address_a,
-			bram_g_data_out_a => mult_z0_bram_g_data_out_a,
-			bram_g_address_b  => mult_z0_bram_g_address_b,
-			bram_g_data_out_b => mult_z0_bram_g_data_out_b
+			clock            => clock,
+			reset            => reset,
+			start            => mult_start,
+			ready            => mult_ready,
+			output_valid     => mult_output_valid,
+			output           => output_record,
+			output_ack       => mult_output_ack,
+			done             => mult_done,
+			ram_address_low  => ram_address_low,
+			ram_data_low     => ram_data_low,
+			ram_address_high => ram_address_high,
+			ram_data_high    => ram_data_high,
+			ram_address_mid  => ram_address_mid,
+			ram_data_mid     => ram_data_mid
 		);
 
-	rq_mult_generic_z1 : entity work.rq_mult_generic_3bit
-		generic map(
-			q_num_bits => q_num_bits,
-			q          => q,
-			q_half     => q_half,
-			p_num_bits => split_address_width,
-			p          => p / 2 + is_degree_odd
-		)
-		port map(
-			clock             => clock,
-			reset             => reset,
-			start             => mult_z1_start,
-			ready             => mult_z1_ready,
-			output_valid      => mult_z1_output_valid,
-			output            => mult_z1_output,
-			output_ack        => mult_z1_output_ack,
-			done              => mult_z1_done,
-			bram_f_address_a  => mult_z1_bram_f_address_a,
-			bram_f_data_out_a => mult_z1_bram_f_data_out_a,
-			bram_f_address_b  => mult_z1_bram_f_address_b,
-			bram_f_data_out_b => mult_z1_bram_f_data_out_b,
-			bram_g_address_a  => mult_z1_bram_g_address_a,
-			bram_g_data_out_a => mult_z1_bram_g_data_out_a,
-			bram_g_address_b  => mult_z1_bram_g_address_b,
-			bram_g_data_out_b => mult_z1_bram_g_data_out_b
-		);
+	ram_data_low.f_data_out_a <= mult_z0_bram_f_data_out_a;
+	ram_data_low.f_data_out_b <= mult_z0_bram_f_data_out_b;
+	ram_data_low.g_data_out_a <= mult_z0_bram_g_data_out_a;
+	ram_data_low.g_data_out_b <= mult_z0_bram_g_data_out_b;
 
-	rq_mult_generic_z2 : entity work.rq_mult_generic
-		generic map(
-			q_num_bits => q_num_bits,
-			q          => q,
-			q_half     => q_half,
-			p_num_bits => split_address_width,
-			p          => p / 2 + is_degree_odd
-		)
-		port map(
-			clock             => clock,
-			reset             => reset,
-			start             => mult_z2_start,
-			ready             => mult_z2_ready,
-			output_valid      => mult_z2_output_valid,
-			output            => mult_z2_output,
-			output_ack        => mult_z2_output_ack,
-			done              => mult_z2_done,
-			bram_f_address_a  => mult_z2_bram_f_address_a,
-			bram_f_data_out_a => mult_z2_bram_f_data_out_a,
-			bram_f_address_b  => mult_z2_bram_f_address_b,
-			bram_f_data_out_b => mult_z2_bram_f_data_out_b,
-			bram_g_address_a  => mult_z2_bram_g_address_a,
-			bram_g_data_out_a => mult_z2_bram_g_data_out_a,
-			bram_g_address_b  => mult_z2_bram_g_address_b,
-			bram_g_data_out_b => mult_z2_bram_g_data_out_b
-		);
+	mult_z0_bram_f_address_a <= ram_address_low.bram_f_address_a(split_address_width - 1 downto 0);
+	mult_z0_bram_f_address_b <= ram_address_low.bram_f_address_b(split_address_width - 1 downto 0);
+	mult_z0_bram_g_address_a <= ram_address_low.bram_g_address_a(split_address_width - 1 downto 0);
+	mult_z0_bram_g_address_b <= ram_address_low.bram_g_address_b(split_address_width - 1 downto 0);
 
+	ram_data_mid.f_data_out_a <= mult_z1_bram_f_data_out_a;
+	ram_data_mid.f_data_out_b <= mult_z1_bram_f_data_out_b;
+	ram_data_mid.g_data_out_a <= mult_z1_bram_g_data_out_a;
+	ram_data_mid.g_data_out_b <= mult_z1_bram_g_data_out_b;
+
+	mult_z1_bram_f_address_a <= ram_address_mid.bram_f_address_a(split_address_width - 1 downto 0);
+	mult_z1_bram_f_address_b <= ram_address_mid.bram_f_address_b(split_address_width - 1 downto 0);
+	mult_z1_bram_g_address_a <= ram_address_mid.bram_g_address_a(split_address_width - 1 downto 0);
+	mult_z1_bram_g_address_b <= ram_address_mid.bram_g_address_b(split_address_width - 1 downto 0);
+
+	ram_data_high.f_data_out_a <= mult_z2_bram_f_data_out_a;
+	ram_data_high.f_data_out_b <= mult_z2_bram_f_data_out_b;
+	ram_data_high.g_data_out_a <= mult_z2_bram_g_data_out_a;
+	ram_data_high.g_data_out_b <= mult_z2_bram_g_data_out_b;
+
+	mult_z2_bram_f_address_a <= ram_address_high.bram_f_address_a(split_address_width - 1 downto 0);
+	mult_z2_bram_f_address_b <= ram_address_high.bram_f_address_b(split_address_width - 1 downto 0);
+	mult_z2_bram_g_address_a <= ram_address_high.bram_g_address_a(split_address_width - 1 downto 0);
+	mult_z2_bram_g_address_b <= ram_address_high.bram_g_address_b(split_address_width - 1 downto 0);
+
+	mult_z0_output <= output_record.output_low;
+	mult_z1_output <= output_record.output_mid;
+	mult_z2_output <= output_record.output_high;
+
+	mult_output_ack <= mult_z0_output_ack or mult_z1_output_ack or mult_z2_output_ack;
+
+	mult_ready <= mult_z0_ready or mult_z1_ready or mult_z2_ready;
+
+	mult_z0_done <= mult_done;
+	mult_z1_done <= mult_done;
+	mult_z2_done <= mult_done;
+
+	mult_z0_output_valid <= mult_output_valid;
+	mult_z1_output_valid <= mult_output_valid;
+	mult_z2_output_valid <= mult_output_valid;
+
+	mult_start <= mult_z0_start or mult_z1_start or mult_z2_start;
+		
 	block_ram_result : entity work.block_ram
 		generic map(
 			ADDRESS_WIDTH => bram_address_result_width,

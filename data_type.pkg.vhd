@@ -136,6 +136,40 @@ package data_type is
 		output_valid   : std_logic;
 	end record mod3_freeze_round_out_type;
 
+	type mult_ram_address is record
+		bram_f_address_a : std_logic_vector(p_num_bits - 1 downto 0);
+		bram_f_address_b : std_logic_vector(p_num_bits - 1 downto 0);
+		bram_g_address_a : std_logic_vector(p_num_bits - 1 downto 0);
+		bram_g_address_b : std_logic_vector(p_num_bits - 1 downto 0);
+	end record mult_ram_address;
+
+	type mult_ram_data is record
+		f_data_out_a : std_logic_vector(q_num_bits - 1 downto 0);
+		f_data_out_b : std_logic_vector(q_num_bits - 1 downto 0);
+		g_data_out_a : std_logic_vector(2 - 1 downto 0);
+		g_data_out_b : std_logic_vector(2 - 1 downto 0);
+	end record mult_ram_data;
+
+	type mult_ram_data_3bit is record
+		f_data_out_a : std_logic_vector(q_num_bits - 1 downto 0);
+		f_data_out_b : std_logic_vector(q_num_bits - 1 downto 0);
+		g_data_out_a : std_logic_vector(3 - 1 downto 0);
+		g_data_out_b : std_logic_vector(3 - 1 downto 0);
+	end record mult_ram_data_3bit;
+
+	type mult_ram_data_4bit is record
+		f_data_out_a : std_logic_vector(q_num_bits - 1 downto 0);
+		f_data_out_b : std_logic_vector(q_num_bits - 1 downto 0);
+		g_data_out_a : std_logic_vector(4 - 1 downto 0);
+		g_data_out_b : std_logic_vector(4 - 1 downto 0);
+	end record mult_ram_data_4bit;
+
+	type mult_output is record
+		output_low  : std_logic_vector(q_num_bits - 1 downto 0);
+		output_mid  : std_logic_vector(q_num_bits - 1 downto 0);
+		output_high : std_logic_vector(q_num_bits - 1 downto 0);
+	end record mult_output;
+
 	constant mod3_freeze_round_zero : mod3_freeze_round_out_type := ((others => '0'), (others => '0'), '0');
 
 	constant rq_mult_out_type_zero : rq_multiplication_out_type := ('0', '0', (others => '0'), '0', (others => '0'), (others => '0'), (others => '0'), (others => '0'));

@@ -431,14 +431,14 @@ begin
 	key_gen_from_rq_mult    <= rq_mult_out when state_top = KEY_GEN else rq_mult_out_type_zero;
 
 	rq_multiplication_inst : entity work.rq_mult_karatsuba_2bit
-		generic map(
-			q_num_bits        => q_num_bits,
-			q                 => q,
-			q_half            => q_half,
-			p_num_bits        => p_num_bits,
-			p                 => p,
-			layer_2_karatsuba => use_2nd_layer_karatsuba
-		)
+--		generic map(
+--			q_num_bits        => q_num_bits,
+--			q                 => q,
+--			q_half            => q_half,
+--			p_num_bits        => p_num_bits,
+--			p                 => p,
+--			layer_2_karatsuba => use_2nd_layer_karatsuba
+--		)
 		port map(
 			clock             => clock,
 			reset             => reset,
