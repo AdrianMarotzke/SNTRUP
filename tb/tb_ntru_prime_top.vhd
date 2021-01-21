@@ -86,9 +86,13 @@ architecture RTL of tb_ntru_prime_top is
 		wait until rising_edge(clock);
 		wait for 1 ns;
 		set_new_public_key <= '1';
+		start_encap        <= '1';
 		wait until rising_edge(clock);
 		wait for 1 ns;
 		set_new_public_key <= '0';
+		start_encap        <= '0';
+		wait until rising_edge(clock) and done = '1';
+		wait for 1000 ns;
 		wait until rising_edge(clock) and public_key_is_set = '1' and ready = '1';
 
 		wait for 1 ns;
@@ -101,11 +105,14 @@ architecture RTL of tb_ntru_prime_top is
 		wait until rising_edge(clock) and public_key_is_set = '1' and ready = '1';
 
 		wait for 1 ns;
-		start_encap <= '1';
+		set_new_public_key <= '1';
+		start_encap        <= '1';
 		wait until rising_edge(clock);
 		wait for 1 ns;
-		start_encap <= '0';
+		set_new_public_key <= '0';
+		start_encap        <= '0';
 		wait until rising_edge(clock) and done = '1';
+		wait for 1000 ns;
 		wait until rising_edge(clock) and public_key_is_set = '1' and ready = '1';
 
 		wait for 1 ns;
@@ -177,6 +184,19 @@ architecture RTL of tb_ntru_prime_top is
 		wait for 1 ns;
 	end procedure decap_test;
 
+	procedure keygen_test(signal start_key_gen : out std_logic) is
+
+	begin
+		wait for 200 ns;
+		wait until rising_edge(clock);
+		wait for 1 ns;
+		start_key_gen <= '1';
+		wait until rising_edge(clock);
+		wait for 1 ns;
+		start_key_gen <= '0';
+		wait until rising_edge(clock) and done = '1';
+	end procedure keygen_test;
+
 begin
 	ntru_prime_top_inst : entity work.ntru_prime_top
 		port map(
@@ -238,18 +258,31 @@ begin
 		set_new_private_key <= '0';
 		start_key_gen       <= '0';
 
-		wait for 200 ns;
-		wait until rising_edge(clock);
-		wait for 1 ns;
-		start_key_gen <= '1';
-		wait until rising_edge(clock);
-		wait for 1 ns;
-		start_key_gen <= '0';
-		wait until rising_edge(clock) and done = '1';
-
-		encap_test(set_new_public_key, start_encap);
-
-		decap_test(set_new_private_key, start_decap);
+		if kat_num mod 6 = 0 then
+			keygen_test(start_key_gen);
+			encap_test(set_new_public_key, start_encap);
+			decap_test(set_new_private_key, start_decap);
+		elsif kat_num mod 6 = 1 then
+			encap_test(set_new_public_key, start_encap);
+			keygen_test(start_key_gen);
+			decap_test(set_new_private_key, start_decap);
+		elsif kat_num mod 6 = 2 then
+			encap_test(set_new_public_key, start_encap);
+			decap_test(set_new_private_key, start_decap);
+			keygen_test(start_key_gen);
+		elsif kat_num mod 6 = 3 then
+			keygen_test(start_key_gen);
+			decap_test(set_new_private_key, start_decap);
+			encap_test(set_new_public_key, start_encap);
+		elsif kat_num mod 6 = 4 then
+			decap_test(set_new_private_key, start_decap);
+			keygen_test(start_key_gen);
+			encap_test(set_new_public_key, start_encap);
+		else
+			decap_test(set_new_private_key, start_decap);
+			encap_test(set_new_public_key, start_encap);
+			keygen_test(start_key_gen);
+		end if;
 
 		if kat_num < 50 then
 			kat_num <= kat_num + 1;
@@ -310,9 +343,9 @@ begin
 					wait until rising_edge(clock) and random_enable = '1';
 					wait for 1 ns;
 				end loop;
-				
+
 			else
-				
+
 				for i in 0 to p + p - 1 + Small_bytes / 4 + 1 loop
 					read(line_v, temp8bit);
 					random_output <= to_std_logic_vector(temp8bit);
