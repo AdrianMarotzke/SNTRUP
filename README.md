@@ -36,3 +36,8 @@ The folder misc contains some miscellaneous items, such as block ram and stack m
 
 The folders encapsulation, decapsulation, keygen, multiplication and encoding contain the respective vhdl files for that operation.
 
+Experimental support for synthesis with `ghdl` is present in the `Makefile`:
+```
+mkdir build && cd build
+make -f ../Makefile synthesis
+```
