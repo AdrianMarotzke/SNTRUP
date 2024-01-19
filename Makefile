@@ -54,6 +54,58 @@ synthesis:
 	ghdl -a ${GHDLFLAGS} ../ntru_prime_top.vhd
 	ghdl -a ${GHDLFLAGS} ../tb/tb_ntru_prime_top.vhd
 
+elaborate:
+	ghdl -e ${GHDLFLAGS} FIFO_buffer
+	ghdl -e ${GHDLFLAGS} comparator
+	ghdl -e ${GHDLFLAGS} sort_bram
+	ghdl -e ${GHDLFLAGS} block_ram
+	#ghdl -e ${GHDLFLAGS} small_random_weights
+	ghdl -e ${GHDLFLAGS} FIFO_buffer
+	ghdl -e ${GHDLFLAGS} mod3_freeze
+	ghdl -e ${GHDLFLAGS} modq_freeze
+	ghdl -e ${GHDLFLAGS} SDP_dist_RAM
+	#ghdl -e ${GHDLFLAGS} small_random_weights
+	ghdl -e ${GHDLFLAGS} stack_memory
+	ghdl -e ${GHDLFLAGS} modq_reciprocal
+	ghdl -e ${GHDLFLAGS} bram_r3_reciprocal
+	ghdl -e ${GHDLFLAGS} bram_rq_reciprocal_3
+	ghdl -e ${GHDLFLAGS} r3_reciprocal
+	ghdl -e ${GHDLFLAGS} modq_minus_product
+	ghdl -e ${GHDLFLAGS} modq_reciprocal
+	ghdl -e ${GHDLFLAGS} rq_reciprocal_3
+#	ghdl -e ${GHDLFLAGS} key_generation
+	ghdl -e ${GHDLFLAGS} encode_R3
+	#ghdl -e ${GHDLFLAGS} key_gen_wrapper
+	ghdl -e ${GHDLFLAGS} rq_reciprocal_3
+	ghdl -e ${GHDLFLAGS} division_32_by_const
+	ghdl -e ${GHDLFLAGS} div_mod_pipeline
+	ghdl -e ${GHDLFLAGS} decode_R3
+	#ghdl -e ${GHDLFLAGS} decode_Rq
+	ghdl -e ${GHDLFLAGS} division_32_by_const
+	ghdl -e ${GHDLFLAGS} div_mod_pipeline
+	ghdl -e ${GHDLFLAGS} encode_R3
+	ghdl -e ${GHDLFLAGS} encode_Rq
+	ghdl -e ${GHDLFLAGS} rq_mult_generic_3bit
+	ghdl -e ${GHDLFLAGS} rq_mult_generic_4bit
+	ghdl -e ${GHDLFLAGS} rq_mult_generic
+	ghdl -e ${GHDLFLAGS} rq_mult_generic_x3_3bit
+	ghdl -e ${GHDLFLAGS} rq_mult_generic_x3
+	ghdl -e ${GHDLFLAGS} rq_mult_karatsuba_2bit_2nd_layer
+	ghdl -e ${GHDLFLAGS} rq_mult_karatsuba_3bit_2nd_layer
+	#ghdl -e ${GHDLFLAGS} rq_mult_karatsuba
+	ghdl -e ${GHDLFLAGS} key_encapsulation
+	ghdl -e ${GHDLFLAGS} key_encap_wrapper
+	ghdl -e ${GHDLFLAGS} rq_mult3
+	ghdl -e ${GHDLFLAGS} calc_weight
+	ghdl -e ${GHDLFLAGS} key_decapsulation
+	ghdl -e ${GHDLFLAGS} key_decap_wrapper
+	#ghdl -e ${GHDLFLAGS} sha_512_pkg
+	#ghdl -e ${GHDLFLAGS} ROM
+	#ghdl -e ${GHDLFLAGS} sha_512_core
+	#ghdl -e ${GHDLFLAGS} sha_512_wrapper
+	ghdl -e ${GHDLFLAGS} tb_ntru_prime_top
+	#ghdl -e ${GHDLFLAGS} ntru_prime_top
+
 clean:
 	-rm *.o
 	-rm *.cf
