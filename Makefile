@@ -105,6 +105,10 @@ elaborate:
 	ghdl -e ${GHDLFLAGS} ntru_prime_top
 	ghdl -e ${GHDLFLAGS} tb_ntru_prime_top
 
+run:
+	ghdl -r ${GHDLFLAGS} tb_ntru_prime_top \
+		--vcd=tb_ntru_prime_top.vcd --wave=tb_ntru_prime_top.ghw
 clean:
 	-rm *.o
 	-rm *.cf
+	-rm *.vcd *.ghw
