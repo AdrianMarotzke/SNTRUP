@@ -7,7 +7,7 @@ use work.sha_512_pkg.all;
 entity K_ROM is
 	port(
 		clock    : in  std_logic;
-		address  : in  integer range 0 to 79;
+		address  : in  integer range 0 to 80;
 		data_out : out STD_LOGIC_VECTOR(WORD_SIZE - 1 downto 0)
 	);
 end entity K_ROM;
