@@ -41,11 +41,13 @@ The folders `encapsulation`, `decapsulation`, `keygen`, `multiplication`, and `e
 
 ## Compatibility
 
-This software was originally build with the non-free Vivado `v2018.3.1` tool chain using the `93` standard.
+This software was originally build with the non-free Vivado `v2018.3.1` tool
+chain using the `93` standard.
 
 ### Free Software support
 
-Experimental support for `synthesis`, `elaborate`, and `run` with `ghdl` is provided using the `Makefile`:
+Experimental support for `synthesis`, `elaborate`, and `run` with `ghdl` is
+provided using the `Makefile`:
 ```
 mkdir build && cd build
 make -f ../Makefile synthesis
@@ -53,4 +55,11 @@ make -f ../Makefile elaborate
 make -f ../Makefile run
 ```
 
-Using `ghdl` version `4.0.0` or `ghdl` from `git tip` with `llvm` should be functional.
+#### Supported `ghdl` configurations
+
+The `ghdl` build process is flexible and may be used with `mcode`, `gcc`, and
+`llvm`. Tested configurations include `ghdl` version `4.0.0` or `ghdl` from
+`git tip` with `llvm`, `ghdl` version `2.0.0` with `mcode`, and `ghdl` version
+`1.0.0` with the `gcc` backend. The latter is used for continuous integration
+using binary packages available on Ubuntu.
+
