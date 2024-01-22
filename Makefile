@@ -1,4 +1,4 @@
-GHDLFLAGS=-v -fsynopsys -frelaxed-rules -Wl,-Wl,--gc-sections -fexplicit --ieee=synopsys --syn-binding --vital-checks --std=93 -frelaxed
+GHDLFLAGS=-v -fsynopsys -frelaxed-rules -fexplicit --ieee=synopsys --syn-binding --vital-checks --std=93 -frelaxed
 synthesis:
 	ghdl -a ${GHDLFLAGS} \
 	 ../constants.pkg.vhd \

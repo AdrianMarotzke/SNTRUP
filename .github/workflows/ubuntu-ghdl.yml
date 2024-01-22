@@ -1,0 +1,17 @@
+name: Ubuntu ghdl
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install packages
+      run: sudo apt update && sudo apt install ghdl ghdl-llvm ghdl-gcc make
+    - name: Show ghdl version information
+      run: ghdl --version
+    - name: Synthesize and Elaborate
+      run: mkdir build && cd build && make -f ../Makefile synthesis && make -f ../Makefile elaborate
+    - name: Run test bench
+      run: cd build && make -f ../Makefile run
