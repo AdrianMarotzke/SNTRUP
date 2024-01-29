@@ -55,7 +55,7 @@ architecture RTL of sha_512_wrapper is
 	signal message_byte_valid_pipe : std_logic;
 
 	signal sha_512_data_valid : std_logic;
-	signal sha_512_n_blocks   : natural;
+	signal sha_512_n_blocks   : natural range 0 to 16;
 	--signal sha_512_msg_block_in : std_logic_vector(0 to 1023);
 	signal sha_512_ready      : std_logic;
 	signal sha_512_data_out   : std_logic_vector(63 downto 0);
