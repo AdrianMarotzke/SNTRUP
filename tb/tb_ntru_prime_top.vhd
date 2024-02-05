@@ -290,10 +290,10 @@ begin
 		if kat_num < 50 then
 			kat_num <= kat_num + 1;
 		else
+			assert false report "Test: OK" severity failure;
 			wait;
 		end if;
 
-		assert false report "Test: OK" severity failure;
 		--wait;
 	end process enable_gen;
 
