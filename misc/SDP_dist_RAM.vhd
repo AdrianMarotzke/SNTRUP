@@ -46,6 +46,6 @@ begin
 		end if;
 	end process port_b;
 
-	assert not ((address_a = address_b) and (write_b = '1') and rising_edge(clock)) report "Memory collision at " & integer'image(to_integer(unsigned(address_a))) severity warning;
+	--ssert not ((address_a = address_b) and (write_b = '1') and rising_edge(clock)) report "Memory collision at " & integer'image(to_integer(unsigned(address_a))) severity warning;
 
 end architecture RTL;

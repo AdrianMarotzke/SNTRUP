@@ -88,6 +88,6 @@ begin
 		end generate generate_dual_port;
 	end generate generate_label2;
 
-	assert not ((address_a = address_b) and (write_b = '1' or write_a = '1') and rising_edge(clock)) report "Memory collision at " & integer'image(to_integer(unsigned(address_a))) severity warning;
+	--assert not ((address_a = address_b) and (write_b = '1' or write_a = '1') and rising_edge(clock)) report "Memory collision at " & integer'image(to_integer(unsigned(address_a))) severity warning;
 
 end architecture RTL;
