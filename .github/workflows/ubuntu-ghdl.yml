@@ -1,6 +1,6 @@
 name: Ubuntu ghdl
 
-on: push
+on: workflow_dispatch
 
 jobs:
   build:
