@@ -111,7 +111,7 @@ begin
 						state_decap <= mult_freeze_done;
 					end if;
 				when mult_freeze_done =>
-					if mod3_freeze_output_valid = '1' then
+					if mod3_freeze_output_valid = '1' and counter /= 0 then
 						counter <= counter - 1;
 					end if;
 					if mod3_freeze_output_valid = '0' then
@@ -137,11 +137,12 @@ begin
 					end if;
 					counter <= 0;
 				when output_masked_weight =>
-					counter      <= counter + 1;
 					output_valid <= '1';
 					if counter = p then -- To p so final element is also output
 						state_decap  <= done_state;
 						output_valid <= '0';
+					else
+						counter <= counter + 1;
 					end if;
 				when done_state =>
 					done <= '1';

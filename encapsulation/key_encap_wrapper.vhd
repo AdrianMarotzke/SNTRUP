@@ -251,7 +251,11 @@ begin
 						end if;
 
 						if sha_hash_out_counter = 6 then
-							sha_hash_out_address <= sha_hash_out_address + 1;
+						    if sha_hash_out_address = 3 then
+						        sha_hash_out_address <= 0;
+						    else
+						        sha_hash_out_address <= sha_hash_out_address + 1;
+						    end if;
 						end if;
 
 					else
@@ -270,12 +274,13 @@ begin
 					state_enc_wrap <= done_state;
 				when done_state =>
 					sha_hash_out_read_en <= '1';
-					sha_hash_out_address <= sha_hash_out_address + 1;
 					k_out_valid          <= '1';
 
 					if sha_hash_out_address = 3 then
 						state_enc_wrap <= key_ready;
 						done           <= '1';
+					else
+						sha_hash_out_address <= sha_hash_out_address + 1;
 					end if;
 
 			end case;

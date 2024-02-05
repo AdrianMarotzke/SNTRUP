@@ -145,6 +145,7 @@ begin
 					sk_random_enable     <= '0';
 					hash_public_key      <= '0';
 					sha_hash_out_read_en <= '0';
+					sha_hash_out_address <= 0;
 				when wait_for_buffer =>
 					if output_h_valid = '0' then
 						state_kg_wrap <= wait_1;
@@ -213,7 +214,7 @@ begin
 					else
 						sha_hash_out_counter <= sha_hash_out_counter + 1;
 					end if;
-					if sha_hash_out_counter = 6 then
+					if sha_hash_out_counter = 6 and sha_hash_out_address /= 3 then
 						sha_hash_out_address <= sha_hash_out_address + 1;
 					end if;
 				when done_state =>

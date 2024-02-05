@@ -251,7 +251,7 @@ begin
 					mult_z1_start <= '0';
 					mult_z2_start <= '0';
 				when STORE_MULT_Z0 =>
-					if mult_z0_output_valid = '1' then
+					if mult_z0_output_valid = '1' and counter_result /= 0 then
 						counter_result <= counter_result - 1;
 
 					end if;
@@ -262,7 +262,7 @@ begin
 					end if;
 					mult_z0_output_ack <= '1';
 				when STORE2_MULT_Z0 =>
-					if mult_z0_output_valid = '1' then
+					if mult_z0_output_valid = '1' and counter_result /= 0 then
 						counter_result <= counter_result - 1;
 					end if;
 
@@ -273,7 +273,7 @@ begin
 						mult_z0_output_ack <= '0';
 					end if;
 				when STORE_MULT_Z1 =>
-					if mult_z1_output_valid = '1' then
+					if mult_z1_output_valid = '1' and counter_result /= 0 then
 						counter_result <= counter_result - 1;
 
 					end if;
@@ -285,7 +285,7 @@ begin
 						counter_result     <= 2 * m2 + p - 1;
 					end if;
 				when STORE_MULT_Z2 =>
-					if mult_z2_output_valid = '1' then
+					if mult_z2_output_valid = '1' and counter_result /= 0 then
 						counter_result <= counter_result - 1;
 
 					end if;
@@ -300,7 +300,7 @@ begin
 						mult_z2_output_ack <= '0';
 					end if;
 
-					if mult_z2_output_valid = '1' then
+					if mult_z2_output_valid = '1' and counter_result /= 0 then
 						counter_result <= counter_result - 1;
 
 					end if;
@@ -331,7 +331,7 @@ begin
 
 						counter_result <= counter_result - 1;
 
-						bram_result_address_a_final <= std_logic_vector(to_unsigned(counter_result - 1 - p, bram_address_result_width));
+						bram_result_address_a_final <= std_logic_vector(to_signed(counter_result - 1 - p, bram_address_result_width+1)(bram_address_result_width-1 downto 0));
 						bram_result_address_b_final <= std_logic_vector(to_unsigned(counter_result - 1, bram_address_result_width));
 
 						output_var := result_reduce_temp + signed(bram_result_data_out_b);
@@ -365,7 +365,7 @@ begin
 	bram_g_address_a <= std_logic_vector(to_unsigned(counter_low, p_num_bits));
 	bram_g_address_b <= std_logic_vector(to_unsigned(counter_high, p_num_bits));
 
-	bram_address_fsm <= std_logic_vector(to_unsigned(counter_low - 1, split_address_width));
+	bram_address_fsm <= std_logic_vector(to_signed(counter_low - 1, split_address_width + 1)(split_address_width - 1 downto 0));
 
 	bram_low1_address_a       <= bram_address_fsm when state_mult_kar = PREPARE_RAM or state_mult_kar = PAUSE else mult_z0_bram_f_address_a;
 	bram_low1_address_b       <= mult_z0_bram_f_address_b;
@@ -432,9 +432,9 @@ begin
 	bram_lowhigh2_write_b <= '0';
 
 	bram_result_address_a <= std_logic_vector(to_unsigned(counter_result, bram_address_result_width)) when state_mult_kar = START_MULT
-	                         else std_logic_vector(to_unsigned(counter_result - 1, bram_address_result_width)) when mult_z0_output_valid = '1' and (state_mult_kar = STORE_MULT_Z0 or state_mult_kar = STORE2_MULT_Z0)
-	                         else std_logic_vector(to_unsigned(counter_result - 1, bram_address_result_width)) when mult_z1_output_valid = '1' and (state_mult_kar = STORE_MULT_Z1)
-	                         else std_logic_vector(to_unsigned(counter_result - 1, bram_address_result_width)) when mult_z2_output_valid = '1' and (state_mult_kar = STORE_MULT_Z2 or state_mult_kar = STORE2_MULT_Z2)
+	                         else std_logic_vector(to_signed(counter_result - 1, bram_address_result_width+1)(bram_address_result_width-1 downto 0)) when mult_z0_output_valid = '1' and (state_mult_kar = STORE_MULT_Z0 or state_mult_kar = STORE2_MULT_Z0)
+	                         else std_logic_vector(to_signed(counter_result - 1, bram_address_result_width+1)(bram_address_result_width-1 downto 0)) when mult_z1_output_valid = '1' and (state_mult_kar = STORE_MULT_Z1)
+	                         else std_logic_vector(to_signed(counter_result - 1, bram_address_result_width+1)(bram_address_result_width-1 downto 0)) when mult_z2_output_valid = '1' and (state_mult_kar = STORE_MULT_Z2 or state_mult_kar = STORE2_MULT_Z2)
 	                         else bram_result_address_a_final when state_mult_kar = POST_PROCESS_1 or state_mult_kar = POST_PROCESS_2 or state_mult_kar = FINAL_INIT or state_mult_kar = FINAL_LOOP
 	                         else std_logic_vector(to_unsigned(counter_result, bram_address_result_width));
 

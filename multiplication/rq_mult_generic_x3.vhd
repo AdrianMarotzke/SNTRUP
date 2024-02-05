@@ -118,8 +118,8 @@ begin
 		variable i_1 : integer range 0 to 2 * p;
 		variable j_1 : integer range 0 to 2 * p;
 
-		variable i_2 : integer range 0 to 2 * p;
-		variable j_2 : integer range 0 to 2 * p;
+		variable i_2 : integer range -1 to 2 * p;
+		variable j_2 : integer range -1 to 2 * p;
 	begin
 		if reset = '1' then
 			state_rq_mult   <= init_state;

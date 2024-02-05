@@ -182,7 +182,7 @@ begin
 				when reset_ram =>
 
 					bram_f_address_a <= std_logic_vector(to_unsigned(counter_fg, bram_address_width));
-					bram_g_address_a <= std_logic_vector(to_unsigned(p - 1 - counter_fg, bram_address_width));
+					bram_g_address_a <= std_logic_vector(to_signed(p - 1 - counter_fg, bram_address_width + 1)(bram_address_width - 1 downto 0));
 
 					bram_v_address_a <= std_logic_vector(to_unsigned(counter_vr, bram_address_width));
 					bram_r_address_a <= std_logic_vector(to_unsigned(counter_vr, bram_address_width));
@@ -336,7 +336,7 @@ begin
 						state_rq_reciprocal <= calc_reciprocal;
 					end if;
 				when output_data =>
-					bram_v_address_a     <= std_logic_vector(to_unsigned(p - 1 - counter_vr, bram_address_width));
+					bram_v_address_a     <= std_logic_vector(to_signed(p - 1 - counter_vr, bram_address_width + 1)(bram_address_width - 1 downto 0));
 					counter_vr           <= counter_vr + 1;
 					output_valid_pipe(0) <= '1';
 					if counter_vr < p then

@@ -147,7 +147,7 @@ begin
 	-- When state is sorting, use addresse from sorting module, when rounding, use address from rounding counter
 	bram_address_a <= bram_address_a_sort when state_weight = sorting
 		else std_logic_vector(to_unsigned(rounding_counter, p_num_bits)) when state_weight = rounding
-		else std_logic_vector(to_unsigned(generate_counter - 1, p_num_bits));
+		else std_logic_vector(to_signed(generate_counter - 1, p_num_bits + 1)(p_num_bits - 1 downto 0));
 
 	-- when counter <= t then output of rng is madeodd, then store in BRAM
 	-- When counter > t, then output of rng is made even, and then stored in BRAM

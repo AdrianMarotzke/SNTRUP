@@ -392,7 +392,7 @@ begin
 					end if;
 
 				when REENCAP =>
-					if key_encap_c_encrypt_valid = '1' then
+					if key_encap_c_encrypt_valid = '1' and counter /= 0 then
 						counter <= counter - 1;
 					end if;
 
@@ -443,7 +443,11 @@ begin
 					end if;
 
 					if sha_out_counter = 6 then
-						sha_out_address <= sha_out_address + 1;
+						if sha_out_address = 3 then
+							sha_out_address <= 0;
+						else
+							sha_out_address <= sha_out_address + 1;
+						end if;
 					end if;
 				when REENCAP_ENCODE_DONE =>
 					differentbits     <= std_logic_vector(("0000000000000001" AND shift_right(signed(differentbits(15 downto 8) & (differentbits(7 downto 0) OR (temp_s XOR bram_c_diff_data_out_a))) - 1, 8)) - 1);
@@ -501,8 +505,9 @@ begin
 					if sha_out_address = 3 then
 						done           <= '1';
 						state_dec_wrap <= KEY_READY;
+					else
+						sha_out_address <= sha_out_address + 1;
 					end if;
-					sha_out_address <= sha_out_address + 1;
 					k_out_valid          <= '1';
 			end case;
 		end if;
@@ -599,7 +604,7 @@ begin
 	encode_Rq_m_input <= std_logic_vector(to_unsigned((q + 2) / 3, 16));
 	encode_Rq_input   <= bram_c_data_out_b;
 
-	bram_c_diff_address_a <= std_logic_vector(to_unsigned(counter_c_diff - 1, Cipher_bytes_bits)) when sha_ack_new_input = '0' and state_dec_wrap = HASH_SESSION
+	bram_c_diff_address_a <= std_logic_vector(to_signed(counter_c_diff - 1, Cipher_bytes_bits+1)(Cipher_bytes_bits-1 downto 0)) when sha_ack_new_input = '0' and state_dec_wrap = HASH_SESSION
 	                         else std_logic_vector(to_unsigned(counter_c_diff, Cipher_bytes_bits)) when encode_Rq_output_valid = '0' --
 	                         else std_logic_vector(to_unsigned(counter_c_diff + 1, Cipher_bytes_bits));
 
