@@ -107,7 +107,8 @@ elaborate:
 
 run:
 	ghdl -r ${GHDLFLAGS} tb_ntru_prime_top \
-		--vcd=tb_ntru_prime_top.vcd --wave=tb_ntru_prime_top.ghw
+		--vcd=tb_ntru_prime_top.vcd --wave=tb_ntru_prime_top.ghw \
+		-gPATH="../" --ieee-asserts=disable --stop-time=12ms
 clean:
 	-rm *.o
 	-rm *.cf

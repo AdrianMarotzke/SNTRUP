@@ -6,6 +6,9 @@ use std.textio.all;
 use work.constants.all;
 
 entity tb_ntru_prime_top is
+	generic(
+		PATH : string := "./"
+	);
 end entity tb_ntru_prime_top;
 
 architecture RTL of tb_ntru_prime_top is
@@ -290,6 +293,7 @@ begin
 			wait;
 		end if;
 
+		assert false report "Test: OK" severity failure;
 		--wait;
 	end process enable_gen;
 
@@ -303,7 +307,7 @@ begin
 		wait until rising_edge(clock) and set_new_public_key = '1';
 		wait for 1 ns;
 
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/pk_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/pk_tb", read_mode);
 
 		for i in 0 to kat_num loop
 			readline(read_file, line_v);
@@ -330,7 +334,7 @@ begin
 	begin
 		wait until start_encap = '1' or start_key_gen = '1';
 		if start_key_gen = '1' then
-			file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/short_random_tb", read_mode);
+			file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/short_random_tb", read_mode);
 
 			for i in 0 to kat_num loop
 				readline(read_file, line_v);
@@ -355,7 +359,7 @@ begin
 			end if;
 
 		elsif start_encap = '1' then
-			file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/inputs_random_tb", read_mode);
+			file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/inputs_random_tb", read_mode);
 
 			for i in 0 to kat_num loop
 				readline(read_file, line_v);
@@ -378,7 +382,7 @@ begin
 		variable line_v   : line;
 		variable temp8bit : string(1 to 2);
 	begin
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/ct_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/ct_tb", read_mode);
 
 		wait until cipher_output_valid = '1';
 
@@ -402,7 +406,7 @@ begin
 		variable line_v   : line;
 		variable temp8bit : string(1 to 2);
 	begin
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/sk_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/sk_tb", read_mode);
 
 		wait until private_key_out_valid = '1';
 
@@ -429,7 +433,7 @@ begin
 		variable line_v   : line;
 		variable temp8bit : string(1 to 2);
 	begin
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/sk_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/sk_tb", read_mode);
 
 		private_key_in_valid <= '0';
 
@@ -461,7 +465,7 @@ begin
 		variable line_v   : line;
 		variable temp8bit : string(1 to 2);
 	begin
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/ct_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/ct_tb", read_mode);
 
 		cipher_input_valid <= '0';
 		wait until rising_edge(clock) and start_decap = '1';
@@ -487,7 +491,7 @@ begin
 		variable line_v   : line;
 		variable temp8bit : string(1 to 64);
 	begin
-		file_open(read_file, "./tb_stimulus/KAT_" & param_set & "/hash_tb", read_mode);
+		file_open(read_file, PATH & "/tb/tb_stimulus/KAT_" & param_set & "/hash_tb", read_mode);
 
 		wait until k_out_valid = '1';
 
